@@ -163,6 +163,59 @@ Mailuminati intelligence and benefiting other Guardian users.
 
 ---
 
+## Prerequisites
+
+### Mandatory
+
+- Linux server  
+- POSIX compatible shell (`/bin/sh` or `/bin/bash`)  
+- `curl`  
+- `tar`  
+- `sudo` (unless installing as root)  
+
+### Optional but Recommended
+
+- `systemd` for service management  
+- `redis` for local cache and learning  
+- An anti spam engine capable of calling HTTP APIs  
+  Examples: Rspamd, SpamAssassin, custom filters  
+- An IMAP server supporting Sieve  
+  Examples: Dovecot, Cyrus, or equivalent  
+
+Guardian does **not** require:
+
+- Git (unless using the developer installation method)  
+- IMAP credentials  
+- Access to raw mailbox content  
+- Heavy runtime dependencies  
+
+---
+
+## Installation
+
+Two installation methods are officially supported.
+
+### Method 1: Install from GitHub Archive (Recommended)
+
+This method does not require Git and is suitable for production environments.
+
+```sh
+curl -fsSL https://github.com/Mailuminati/Guardian/archive/refs/heads/main.tar.gz \
+| tar xz
+cd Guardian-main
+./install.sh
+```
+
+### Method 2: Install using Git, developer friendly
+
+This method is recommended if you plan to contribute or track changes easily.
+
+```sh
+git clone https://github.com/Mailuminati/Guardian.git
+cd Guardian
+./install.sh
+```
+
 ## Deployment Model
 
 Guardian typically runs as:

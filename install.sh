@@ -35,6 +35,64 @@ log_error() {
     echo -e "${COLOR_RED}[ERROR]${COLOR_RESET} $1"
 }
 
+# --- CLI options / feature toggles ---
+# Defaults keep existing behavior.
+ENABLE_RSPAMD_INTEGRATION=1
+ENABLE_SPAMASSASSIN_INTEGRATION=1
+ENABLE_MTA_FILTER_CHECK=1
+OFFER_FILTER_INTEGRATION=1
+
+show_help() {
+    cat <<'EOF'
+Mailuminati Guardian Installer
+
+Usage:
+  ./install.sh [options]
+
+Options:
+  --no-rspamd              Disable Rspamd integration (even if installed)
+  --no-spamassassin        Disable SpamAssassin integration (even if installed)
+  --no-filter-check        Do not warn if no mail filter is installed
+  --no-filter-integration  Do not offer integration steps after startup
+  -h, --help               Show this help
+
+Environment variables (override defaults):
+  ENABLE_RSPAMD_INTEGRATION=0|1
+  ENABLE_SPAMASSASSIN_INTEGRATION=0|1
+  ENABLE_MTA_FILTER_CHECK=0|1
+  OFFER_FILTER_INTEGRATION=0|1
+EOF
+}
+
+parse_args() {
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --no-rspamd)
+                ENABLE_RSPAMD_INTEGRATION=0
+                ;;
+            --no-spamassassin)
+                ENABLE_SPAMASSASSIN_INTEGRATION=0
+                ;;
+            --no-filter-check)
+                ENABLE_MTA_FILTER_CHECK=0
+                ;;
+            --no-filter-integration)
+                OFFER_FILTER_INTEGRATION=0
+                ;;
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            *)
+                log_error "Unknown option: $1"
+                log_info "Run: ./install.sh --help"
+                exit 2
+                ;;
+        esac
+        shift
+    done
+}
+
 # --- Dependency check functions ---
 
 # Generic function to check if a command exists
@@ -81,6 +139,9 @@ check_docker_compose() {
 
 # 3. Check for a mail filter (Rspamd or SpamAssassin)
 check_mta_filter() {
+    if [ "${ENABLE_MTA_FILTER_CHECK}" != "1" ]; then
+        return 0
+    fi
     if command_exists rspamd; then
         return 0
     elif command_exists spamassassin; then
@@ -451,8 +512,20 @@ print_spamassassin_integration_instructions() {
 }
 
 offer_filter_integration() {
+    if [ "${OFFER_FILTER_INTEGRATION}" != "1" ]; then
+        log_info "Skipping mail filter integration (disabled by option/env)."
+        return 0
+    fi
+
     local has_rspamd=0
     local has_sa=0
+        if [ "${ENABLE_RSPAMD_INTEGRATION}" = "1" ] && command_exists rspamd; then
+        has_rspamd=1
+    fi
+    if [ "${ENABLE_SPAMASSASSIN_INTEGRATION}" = "1" ] && command_exists spamassassin; then
+        has_sa=1
+    fi
+
     command_exists rspamd && has_rspamd=1
     command_exists spamassassin && has_sa=1
 
@@ -712,6 +785,14 @@ main() {
     echo -e " Mailuminati Guardian Dependency Checker"
     echo -e "=================================================="
 
+    # Allow env vars to override defaults
+    ENABLE_RSPAMD_INTEGRATION="${ENABLE_RSPAMD_INTEGRATION:-1}"
+    ENABLE_SPAMASSASSIN_INTEGRATION="${ENABLE_SPAMASSASSIN_INTEGRATION:-1}"
+    ENABLE_MTA_FILTER_CHECK="${ENABLE_MTA_FILTER_CHECK:-1}"
+    OFFER_FILTER_INTEGRATION="${OFFER_FILTER_INTEGRATION:-1}"
+
+    parse_args "$@"
+
     # Optional environment hints (only warn when missing)
     check_mta_filter
     check_dovecot
@@ -757,4 +838,4 @@ main() {
 }
 
 # --- Run the script ---
-main
+main "$@"

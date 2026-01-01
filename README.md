@@ -43,7 +43,7 @@ to small and community run infrastructures.
 
 Guardian is responsible for:
 
-- Local analysis of incoming emails
+- Local spam/phishing analysis of incoming emails
 - Structural fingerprinting using TLSH
 - Fast proximity detection via locality sensitive hashing (LSH)
 - Immediate application of local learning
@@ -213,6 +213,19 @@ Guardian does **not** require:
 - Access to raw mailbox content  
 - Heavy runtime dependencies  
 
+Note: Rspamd and SpamAssassin integrations are optional. You can skip all filter integration prompts with:
+
+```sh
+./install.sh --no-filter-integration
+```
+
+Or disable a specific integration even if installed:
+
+```sh
+./install.sh --no-rspamd
+./install.sh --no-spamassassin
+```
+
 ---
 
 ## Installation
@@ -257,7 +270,6 @@ It exposes endpoints such as:
 
 ## Relationship to Other Components
 
-- **Custos** defines the global architecture and protocols
 - **Guardian** performs local detection, learning, and enforcement
 - **Oracle** provides shared intelligence and collaborative confirmation
 

@@ -100,6 +100,28 @@ command_exists() {
     command -v "$1" &> /dev/null
 }
 
+# Docker helper: some systems require sudo to access the Docker daemon.
+DOCKER_SUDO=""
+
+docker_needs_sudo() {
+    docker info >/dev/null 2>&1 && return 1
+    docker ps >/dev/null 2>&1 && return 1
+    return 0
+}
+
+init_docker_sudo() {
+    DOCKER_SUDO=""
+    if command_exists docker && [ "${EUID:-$(id -u)}" -ne 0 ] && docker_needs_sudo; then
+        if command_exists sudo; then
+            DOCKER_SUDO="sudo"
+            log_warning "Docker daemon access seems to require sudo on this system."
+            log_info "Tip: to avoid sudo, add your user to the 'docker' group and re-login."
+        else
+            log_warning "Docker daemon access seems restricted (permission issue), and 'sudo' is not available."
+        fi
+    fi
+}
+
 # Warn if running as root
 if [ "${EUID:-$(id -u)}" -eq 0 ]; then
     log_warning "Running installer as root. This is not required."
@@ -123,7 +145,7 @@ check_docker() {
 # 2. Check for Docker Compose
 check_docker_compose() {
     log_info "Checking for Docker Compose..."
-    if docker compose version &> /dev/null; then
+    if $DOCKER_SUDO docker compose version &> /dev/null; then
         log_success "Docker Compose (v2+) is installed."
         return 0
     elif command_exists docker-compose; then
@@ -519,15 +541,12 @@ offer_filter_integration() {
 
     local has_rspamd=0
     local has_sa=0
-        if [ "${ENABLE_RSPAMD_INTEGRATION}" = "1" ] && command_exists rspamd; then
+    if [ "${ENABLE_RSPAMD_INTEGRATION}" = "1" ] && command_exists rspamd; then
         has_rspamd=1
     fi
     if [ "${ENABLE_SPAMASSASSIN_INTEGRATION}" = "1" ] && command_exists spamassassin; then
         has_sa=1
     fi
-
-    command_exists rspamd && has_rspamd=1
-    command_exists spamassassin && has_sa=1
 
     if [ "$has_rspamd" != "1" ] && [ "$has_sa" != "1" ]; then
         log_info "No supported mail filter detected (rspamd/spamassassin). Skipping integration guidance."
@@ -631,9 +650,9 @@ show_installation_options() {
                     log_info "Found 'docker-compose.yaml'."
 
                     log_info "Ensuring 'Mailuminati' network exists..."
-                    if ! docker network inspect Mailuminati &> /dev/null; then
+                    if ! $DOCKER_SUDO docker network inspect Mailuminati &> /dev/null; then
                         log_info "Network 'Mailuminati' not found. Creating it..."
-                        if docker network create Mailuminati; then
+                        if $DOCKER_SUDO docker network create Mailuminati; then
                             log_success "Network 'Mailuminati' created."
                         else
                             log_error "Failed to create 'Mailuminati' network."
@@ -644,7 +663,7 @@ show_installation_options() {
                     fi
 
                     log_info "Building and starting services with Docker Compose..."
-                    if docker compose up -d --build; then
+                    if $DOCKER_SUDO docker compose up -d --build; then
                         log_success "Mailuminati Guardian has been started successfully."
                         log_success "The project is now listening on port 1133."
                         post_start_flow
@@ -794,6 +813,8 @@ main() {
 
     parse_args "$@"
 
+    init_docker_sudo
+
     # Optional environment hints (only warn when missing)
     check_mta_filter
     check_dovecot
@@ -801,7 +822,7 @@ main() {
     # Detect availability without spamming OK details
     docker_possible=0
     if command_exists docker; then
-        if docker compose version &> /dev/null || command_exists docker-compose; then
+        if $DOCKER_SUDO docker compose version &> /dev/null || command_exists docker-compose; then
             if [ -f "docker-compose.yaml" ]; then
                 docker_possible=1
             fi

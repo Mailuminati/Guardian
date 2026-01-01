@@ -710,7 +710,7 @@ show_installation_options() {
                         rm -rf "$TMP_BUILD_DIR"
                     fi
                     # --- End TLSH logic ---
-                    if [ -f "mi_guardian/main.go" ]; then
+                    if [ -f "./mi_guardian/main.go" ]; then
                         log_info "Initializing Go module in mi_guardian..."
                         cd mi_guardian
                         go mod init mailuminati-guardian || log_info "Go module already initialized."
@@ -721,8 +721,8 @@ show_installation_options() {
                             log_success "Build complete. The binary is available in the mi_guardian directory."
                             # Move binary to /opt/Mailuminati
                             sudo mkdir -p /opt/Mailuminati
-                            sudo mv mi_guardian /opt/Mailuminati/mi_guardian
-                            log_success "Binary moved to /opt/Mailuminati/mi_guardian."
+                            sudo mv mailuminati-guardian /opt/Mailuminati/mailuminati-guardian
+                            log_success "Binary moved to /opt/Mailuminati/mailuminati-guardian."
                             # Create system user if not exists
                             if ! id -u mailuminati &>/dev/null; then
                                 sudo useradd --system --no-create-home --shell /usr/sbin/nologin mailuminati
@@ -742,7 +742,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/opt/Mailuminati/mi_guardian
+ExecStart=/opt/Mailuminati/mailuminati-guardian
 Restart=always
 RestartSec=5
 User=mailuminati

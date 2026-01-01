@@ -3,19 +3,18 @@
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.25-blue" alt="Go Version">
+  <img src="https://img.shields.io/badge/Go-1.25-blue" alt="Go">
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
 </p>
+
 
 # Mailuminati Guardian
 
-**Guardian** is the local detection and enforcement component of the Mailuminati ecosystem.
+**Guardian** is a **high-performance, scalable spam/phishing detection and enforcement service** designed to run next to your MTA and filtering engine.
 
-It operates close to mail transfer agents and filtering engines, providing
-ultra fast analysis of incoming emails, immediate local learning, and controlled
-interaction with the Mailuminati Oracle for shared and collaborative intelligence.
+It analyzes incoming emails **ultra-fast** (structure fingerprinting + proximity detection), applies **immediate local learning** from operator/user reports, and only reaches out to the **Mailuminati Oracle** when needed for shared, collaborative intelligence.
 
-Guardian is designed for anyone operating email services, from large providers
-to small and community run infrastructures.
+Guardian is built for anyone operating email infrastructure—from large providers to small and community-run servers—who wants fast decisions with minimal overhead.
 
 ---
 

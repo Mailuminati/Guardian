@@ -1,0 +1,2 @@
+# Exclude installer scripts from language statistics
+install.sh linguist-generated

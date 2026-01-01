@@ -14,7 +14,7 @@
 
 It analyzes incoming emails **ultra-fast** (structure fingerprinting + proximity detection), applies **immediate local learning** from operator/user reports, and only reaches out to the **Mailuminati Oracle** when needed for shared, collaborative intelligence.
 
-Guardian is built for anyone operating email infrastructure—from large providers to small and community-run servers—who wants fast decisions with minimal overhead.
+Guardian is built for anyone operating email infrastructure, from large providers to small and community-run servers, who wants fast decisions with minimal overhead.
 
 ---
 

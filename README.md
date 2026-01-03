@@ -295,8 +295,7 @@ Example response:
 {
   "node_id": "6c0a5e16-2b32-4f86-9b3d-2b2e3df5c7d8",
   "current_seq": 0,
-  "version": "0.3.2",
-  "tlsh_binary": "/usr/local/bin/tlsh"
+  "version": "0.3.2"
 }
 ```
 
@@ -364,7 +363,6 @@ Notes:
 
 Guardian’s API behavior depends on these environment variables:
 
-- `TLSH_BIN` (default: `/usr/local/bin/tlsh`, required at startup)
 - `REDIS_HOST` (default: `localhost`)
 - `REDIS_PORT` (default: `6379`)
 

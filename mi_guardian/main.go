@@ -463,7 +463,7 @@ func normalizeEmailBody(text, html string) string {
 	body = strings.TrimSpace(body)
 
 	reImgSrc := regexp.MustCompile(`(?i)<img([^>]*?)src="[^"]*"([^>]*?)>`)
-	body = reImgSrc.ReplaceAllString(body, `<img$1src="imgurl"$2>`)
+	body = reImgSrc.ReplaceAllString(body, `<img${1}src="imgurl"${2}>`)
 
 	reHex8 := regexp.MustCompile(`[0-9a-fA-F]{8,}`)
 	body = reHex8.ReplaceAllString(body, "****")
@@ -474,7 +474,7 @@ func normalizeEmailBody(text, html string) string {
 	reStyleAttr := regexp.MustCompile(`(?i)\s*style\s*=\s*"[^"]*"`)
 	body = reStyleAttr.ReplaceAllString(body, "")
 
-	reTrackers := regexp.MustCompile(`(?i)([?&])(utm_[^=&]+|gclid|fbclid|mc_eid|mc_cid)=[^&\s]+`)
+	reTrackers := regexp.MustCompile(`(?i)([?&])(utm_[^=&]+|gclid|fbclid|mc_eid|mc_cid)=[^&\s"'>]+`)
 	body = reTrackers.ReplaceAllString(body, "$1")
 
 	body = strings.ToLower(body)

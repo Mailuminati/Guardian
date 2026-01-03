@@ -378,7 +378,9 @@ pipe :copy "guardian-report.sh" ["ham"];' | $sudo_cmd tee "$report_ham_sieve" >/
         $sudo_cmd sievec "$report_ham_sieve"
         log_success "Compiled sieve scripts."
     else
-        log_warning "sievec command not found. You may need to compile the scripts manually."
+        log_error "sievec command not found. Cannot compile sieve scripts."
+        log_info "Please install dovecot-sieve / dovecot-pigeonhole package."
+        return 1
     fi
 
     # 4. Set Permissions

@@ -66,6 +66,22 @@ check_mta_filter() {
 # 4. Check for Dovecot (IMAP/POP3 server)
 check_dovecot() {
     if command_exists dovecot; then
+        # Check for sievec (Dovecot Sieve)
+        if ! command_exists sievec; then
+            log_warning "Dovecot is installed, but 'sievec' command is missing."
+            log_info "This usually means the 'dovecot-sieve' or 'dovecot-pigeonhole' package is missing."
+            
+            if [ -f /etc/debian_version ]; then
+                log_info "On Debian/Ubuntu, try: sudo apt install dovecot-sieve dovecot-managesieved"
+            elif [ -f /etc/redhat-release ]; then
+                log_info "On RHEL/CentOS, try: sudo dnf install dovecot-pigeonhole"
+            elif [ -f /etc/alpine-release ]; then
+                log_info "On Alpine, try: sudo apk add dovecot-pigeonhole-plugin"
+            else
+                log_info "Please install the Dovecot Sieve/Pigeonhole plugin for your distribution."
+            fi
+            return 2
+        fi
         return 0
     else
         log_warning "Dovecot is not found."

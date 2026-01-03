@@ -3,6 +3,7 @@ module mailuminati-guardian
 go 1.25.5
 
 require (
+	github.com/glaslos/tlsh v0.4.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.6.0
 	github.com/jhillyerd/enmime v1.3.0

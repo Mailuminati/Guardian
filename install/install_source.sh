@@ -11,51 +11,7 @@ install_source() {
     elif ! command_exists redis-server && ! command_exists redis-cli; then
         log_error "Redis is not installed. Cannot proceed with Standalone build."
         log_info "Please install Redis or choose the Docker installation method."
-    elif ! command_exists cmake; then
-        log_error "cmake is not installed. Cannot proceed with Standalone build."
-        log_info "Please install cmake or choose the Docker installation method."
     else
-        # --- TLSH binary check and build logic ---
-        TLSH_BIN_PATH="${TLSH_BIN:-/usr/local/bin/tlsh}"
-        if [ -x "$TLSH_BIN_PATH" ]; then
-            log_success "TLSH binary found at $TLSH_BIN_PATH."
-        else
-            log_warning "TLSH binary not found at $TLSH_BIN_PATH. Attempting to build it."
-            for dep in git cmake make g++; do
-                if ! command_exists $dep; then
-                    log_error "$dep is required to build TLSH but is not installed."
-                    log_info "Please install $dep and re-run the installer."
-                    exit 1
-                fi
-            done
-            TMP_BUILD_DIR="/tmp/tlsh_build_$$"
-            mkdir -p "$TMP_BUILD_DIR"
-            cd "$TMP_BUILD_DIR"
-            log_info "Cloning TLSH repository..."
-            if git clone https://github.com/trendmicro/tlsh.git; then
-                cd tlsh
-                chmod +x ./make.sh
-                log_info "Building TLSH..."
-                if ./make.sh; then
-                    if [ -f bin/tlsh ]; then
-                        sudo cp bin/tlsh /usr/local/bin/tlsh
-                        log_success "TLSH binary built and installed to /usr/local/bin/tlsh."
-                    else
-                        log_error "TLSH build succeeded but binary not found."
-                        exit 1
-                    fi
-                else
-                    log_error "TLSH build failed."
-                    exit 1
-                fi
-            else
-                log_error "Failed to clone TLSH repository."
-                exit 1
-            fi
-            cd - > /dev/null
-            rm -rf "$TMP_BUILD_DIR"
-        fi
-        # --- End TLSH logic ---
         if [ -f "${INSTALLER_DIR}/mi_guardian/main.go" ]; then
             log_info "Initializing Go module in mi_guardian..."
             pushd "${INSTALLER_DIR}/mi_guardian" >/dev/null || { log_error "Failed to enter ${INSTALLER_DIR}/mi_guardian"; exit 1; }

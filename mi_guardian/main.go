@@ -335,17 +335,74 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 
 	// --- Local learning ---
 	if reqBody.ReportType == "spam" {
-		log.Printf("[Mailuminati] Learning from spam report for Message-ID: %s", reqBody.MessageID)
-		pipe := rdb.Pipeline()
+		log.Printf("[Mailuminati] Processing spam report for Message-ID: %s", reqBody.MessageID)
+
 		for _, hash := range scanData.Hashes {
 			bands := extractBands_6_3(hash)
-			for _, band := range bands {
-				key := LocalFragPrefix + band
-				pipe.SAdd(ctx, key, hash)
-				pipe.Expire(ctx, key, 15*24*time.Hour)
+			shouldLearn := true
+
+			// Check if we already know this spam locally
+			pipe := rdb.Pipeline()
+			localCmds := make(map[string]*redis.IntCmd)
+			for _, b := range bands {
+				key := LocalFragPrefix + b
+				localCmds[key] = pipe.Exists(ctx, key)
+			}
+			pipe.Exec(ctx)
+
+			matchingBandsKeys := []string{}
+			for key, cmd := range localCmds {
+				if cmd.Val() > 0 {
+					matchingBandsKeys = append(matchingBandsKeys, key)
+				}
+			}
+
+			if len(matchingBandsKeys) >= 4 {
+				// Potential match found, retrieve candidate hashes
+				pipe = rdb.Pipeline()
+				hashCmds := make(map[string]*redis.StringSliceCmd)
+				for _, key := range matchingBandsKeys {
+					hashCmds[key] = pipe.SMembers(ctx, key)
+				}
+				pipe.Exec(ctx)
+
+				candidates := make(map[string]struct{})
+				for _, cmd := range hashCmds {
+					for _, h := range cmd.Val() {
+						candidates[h] = struct{}{}
+					}
+				}
+
+				candidateList := []string{}
+				for h := range candidates {
+					candidateList = append(candidateList, h)
+				}
+
+				if len(candidateList) > 0 {
+					distances, err := computeDistanceBatch(hash, candidateList, candidateList, false)
+					if err == nil {
+						for _, dist := range distances {
+							if dist <= 70 {
+								shouldLearn = false
+								log.Printf("[Mailuminati] Skipping learning for hash %s (too close to existing spam, dist=%d)", hash, dist)
+								break
+							}
+						}
+					}
+				}
+			}
+
+			if shouldLearn {
+				pipe := rdb.Pipeline()
+				for _, band := range bands {
+					key := LocalFragPrefix + band
+					pipe.SAdd(ctx, key, hash)
+					pipe.Expire(ctx, key, 15*24*time.Hour)
+				}
+				pipe.Exec(ctx)
+				log.Printf("[Mailuminati] Learned new spam hash: %s", hash)
 			}
 		}
-		pipe.Exec(ctx)
 	}
 	// --- End local learning ---
 

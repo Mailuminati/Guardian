@@ -349,6 +349,163 @@ configure_dovecot_integration() {
              log_success "Appended plugin block."
         fi
     fi
+
+    # --- Configure IMAPSieve Rules ---
+    log_info "Configuring IMAPSieve rules for Spam/Ham reporting..."
+
+    # 1. Create Sieve Scripts Directory
+    local sieve_global_dir="/etc/dovecot/sieve"
+    if [ ! -d "$sieve_global_dir" ]; then
+        $sudo_cmd mkdir -p "$sieve_global_dir"
+        log_success "Created directory $sieve_global_dir"
+    fi
+
+    # 2. Create Sieve Scripts
+    local report_spam_sieve="${sieve_global_dir}/report-spam.sieve"
+    local report_ham_sieve="${sieve_global_dir}/report-ham.sieve"
+
+    # report-spam.sieve
+    echo 'require ["vnd.dovecot.pipe", "copy", "imapsieve"];
+pipe :copy "guardian-report.sh" ["spam"];' | $sudo_cmd tee "$report_spam_sieve" >/dev/null
+    log_success "Created $report_spam_sieve"
+
+    # report-ham.sieve
+    echo 'require ["vnd.dovecot.pipe", "copy", "imapsieve"];
+pipe :copy "guardian-report.sh" ["ham"];' | $sudo_cmd tee "$report_ham_sieve" >/dev/null
+    log_success "Created $report_ham_sieve"
+
+    # 3. Compile Sieve Scripts
+    if command_exists sievec; then
+        $sudo_cmd sievec "$report_spam_sieve"
+        $sudo_cmd sievec "$report_ham_sieve"
+        log_success "Compiled sieve scripts."
+    else
+        log_warning "sievec command not found. You may need to compile the scripts manually."
+    fi
+
+    # 4. Set Permissions
+    # Try to detect vmail user/group, fallback to dovecot or root
+    local dovecot_user="vmail"
+    if ! id -u vmail >/dev/null 2>&1; then
+        if id -u dovecot >/dev/null 2>&1; then
+            dovecot_user="dovecot"
+        else
+            dovecot_user="root"
+        fi
+    fi
+    
+    $sudo_cmd chown -R "$dovecot_user:$dovecot_user" "$sieve_global_dir"
+    $sudo_cmd chmod 644 "${sieve_global_dir}"/*.sieve
+    if ls "${sieve_global_dir}"/*.svbin >/dev/null 2>&1; then
+        $sudo_cmd chmod 644 "${sieve_global_dir}"/*.svbin
+    fi
+    log_success "Set permissions for sieve scripts (User: $dovecot_user)."
+
+    # 5. Install guardian-report.sh
+    local source_script="${INSTALLER_DIR}/Dovecot/guardian-report.sh"
+    local target_script="/usr/local/bin/guardian-report.sh"
+    
+    if [ -f "$source_script" ]; then
+        $sudo_cmd cp "$source_script" "$target_script"
+        $sudo_cmd chmod +x "$target_script"
+        log_success "Installed $target_script"
+    else
+        log_warning "Could not find source script at $source_script. Skipping copy."
+    fi
+
+    # 6. Configure 90-sieve.conf with dynamic IDs
+    log_info "Injecting IMAPSieve configuration into $DOVECOT_SIEVE_CONF..."
+
+    # Find the highest existing mailbox ID
+    local max_id=0
+    if [ -f "$DOVECOT_SIEVE_CONF" ]; then
+        # Extract all numbers X from imapsieve_mailboxX_name, sort them, take the last one
+        local found_id
+        found_id=$(grep -o 'imapsieve_mailbox[0-9]*_name' "$DOVECOT_SIEVE_CONF" | grep -o '[0-9]*' | sort -rn | head -1)
+        if [ -n "$found_id" ]; then
+            max_id=$found_id
+        fi
+    fi
+    
+    log_info "Starting with imapsieve_mailbox ID: $((max_id + 1))"
+
+    # Helper to append config block
+    append_sieve_config() {
+        local name="$1"
+        local from="$2"
+        local cause="$3"
+        local script="$4"
+        
+        max_id=$((max_id + 1))
+        
+        local config_block=""
+        config_block+="  imapsieve_mailbox${max_id}_name = \"$name\""
+        if [ -n "$from" ]; then
+            config_block+=$'\n'"  imapsieve_mailbox${max_id}_from = \"$from\""
+        fi
+        config_block+=$'\n'"  imapsieve_mailbox${max_id}_causes = $cause"
+        config_block+=$'\n'"  imapsieve_mailbox${max_id}_before = file:$script"
+        
+        # Insert into the plugin block
+        # We use sed to insert before the closing brace of the plugin block
+        # This assumes the file ends with a closing brace '}' for the plugin block or has one.
+        # A safer approach for simple appending inside the last plugin { ... } block:
+        
+        # We will construct a temporary file with the block to append
+        echo "$config_block" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF.append" >/dev/null
+    }
+
+    # Clear temp append file
+    $sudo_cmd rm -f "$DOVECOT_SIEVE_CONF.append"
+
+    # SPAM Reporting (Move TO Spam/Junk)
+    append_sieve_config "Junk" "" "COPY" "$report_spam_sieve"
+    append_sieve_config "Spam" "" "COPY" "$report_spam_sieve"
+    append_sieve_config "INBOX.Spam" "" "COPY" "$report_spam_sieve"
+    append_sieve_config "INBOX.Junk" "" "COPY" "$report_spam_sieve"
+
+    # HAM Reporting (Move FROM Spam/Junk)
+    append_sieve_config "*" "Junk" "COPY" "$report_ham_sieve"
+    append_sieve_config "*" "Spam" "COPY" "$report_ham_sieve"
+    append_sieve_config "*" "INBOX.Spam" "COPY" "$report_ham_sieve"
+    append_sieve_config "*" "INBOX.Junk" "COPY" "$report_ham_sieve"
+
+    # Now inject the content of .append file into the configuration file
+    # We look for the last occurrence of "}" and insert before it, 
+    # OR if we just created the file, we can just append inside the plugin block.
+    
+    # Simple strategy: Read the append file and use sed to insert it before the last line that contains '}'
+    # This is a bit fragile but works for standard dovecot configs.
+    
+    if [ -f "$DOVECOT_SIEVE_CONF.append" ]; then
+        local content_to_inject
+        content_to_inject=$(cat "$DOVECOT_SIEVE_CONF.append")
+        
+        # Escape newlines for sed
+        content_to_inject="${content_to_inject//$'\n'/\\n}"
+        
+        # Insert before the last closing brace
+        # If the file has multiple plugin blocks, this might be tricky. 
+        # Assuming standard 90-sieve.conf structure where the whole file is often inside plugin { } or has one main plugin { } block.
+        
+        # Let's try to find "plugin {" and append after it if we can't reliably find the end.
+        # Actually, appending to the end of the file (before the last }) is safer if we assume the file ends with }.
+        
+        # Check if file ends with }
+        if tail -n1 "$DOVECOT_SIEVE_CONF" | grep -q "}"; then
+             # Remove the last line (}), append our content, then add } back
+             $sudo_cmd sed -i '$d' "$DOVECOT_SIEVE_CONF"
+             cat "$DOVECOT_SIEVE_CONF.append" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF" >/dev/null
+             echo "}" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF" >/dev/null
+             log_success "Injected IMAPSieve rules into $DOVECOT_SIEVE_CONF"
+        else
+             # Fallback: just append and hope it's inside a block or valid
+             cat "$DOVECOT_SIEVE_CONF.append" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF" >/dev/null
+             log_warning "Appended rules to end of file (could not find closing brace). Please verify syntax."
+        fi
+        
+        $sudo_cmd rm -f "$DOVECOT_SIEVE_CONF.append"
+    fi
     
     log_info "Reloading Dovecot..."
     if command_exists systemctl; then

@@ -16,13 +16,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/glaslos/tlsh"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/jhillyerd/enmime"
@@ -30,13 +30,12 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion   = "0.3.2"
+	EngineVersion   = "0.4.0"
 	FragKeyPrefix   = "mi_f:"
 	LocalFragPrefix = "lg_f:"
 	MetaNodeID      = "mi_meta:id"
 	MetaVer         = "mi_meta:v"
 	DefaultOracle   = "https://oracle.mailuminati.com"
-	DefaultTLSHBin  = "/usr/local/bin/tlsh"
 	MaxProcessSize  = 15 * 1024 * 1024 // 15 MB max
 	MinVisualSize   = 50 * 1024        // Ignore small logos/trackers
 )
@@ -45,7 +44,6 @@ var (
 	ctx                 = context.Background()
 	rdb                 *redis.Client
 	oracleURL           string
-	tlshBin             string
 	nodeID              string
 	scanCount           int64
 	partialMatchCount   int64
@@ -81,12 +79,6 @@ type ScanResult struct {
 func main() {
 	// Configuration
 	oracleURL = getEnv("ORACLE_URL", DefaultOracle)
-	tlshBin = getEnv("TLSH_BIN", DefaultTLSHBin)
-
-	// Verify TLSH binary presence
-	if _, err := os.Stat(tlshBin); err != nil {
-		log.Fatalf("[Mailuminati] Critical: TLSH binary not found at %s: %v", tlshBin, err)
-	}
 
 	redisHost := getEnv("REDIS_HOST", "localhost")
 	redisPort := getEnv("REDIS_PORT", "6379")
@@ -396,7 +388,6 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 		"node_id":     nodeID,
 		"current_seq": currentSeq,
 		"version":     EngineVersion,
-		"tlsh_binary": tlshBin,
 	}
 	respBytes, _ := json.Marshal(resp)
 
@@ -409,67 +400,34 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 // --- Internal TLSH logic ---
 
 func computeLocalTLSH(content string) (string, error) {
-	tmpFile, err := os.CreateTemp("", "mi_tlsh_*")
+	goHashStruct, err := tlsh.HashBytes([]byte(content))
 	if err != nil {
 		return "", err
 	}
-	defer func() {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-	}()
-
-	if _, err := io.WriteString(tmpFile, content); err != nil {
-		return "", err
-	}
-	tmpFile.Sync()
-
-	return computeDigest(tmpFile.Name())
-}
-
-func computeDigest(path string) (string, error) {
-	cmd := exec.Command(tlshBin, "-f", path)
-	out, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("tlsh exec error: %w", err)
-	}
-
-	line := strings.TrimSpace(string(out))
-	if line == "" {
-		return "", errors.New("tlsh empty output")
-	}
-
-	fields := strings.Fields(line)
-	if len(fields) == 0 {
-		return "", errors.New("cannot parse tlsh output")
-	}
-
-	return fields[0], nil
+	// "T1" prefix + Uppercase
+	return "T1" + strings.ToUpper(goHashStruct.String()), nil
 }
 
 // computeDistance computes the distance between two hashes locally
 func computeDistance(d1, d2 string, includeLen bool, threshold int) (int, error) {
-	args := []string{"-c", d1, "-d", d2}
-	if !includeLen {
-		args = append(args, "-xlen")
-	}
-	if threshold > 0 {
-		args = append(args, "-T", strconv.Itoa(threshold))
-	}
+	// Strip T1 prefix if present, as ParseStringToTlsh expects raw hex
+	d1 = strings.TrimPrefix(d1, "T1")
+	d2 = strings.TrimPrefix(d2, "T1")
 
-	cmd := exec.Command(tlshBin, args...)
-	out, err := cmd.Output()
+	t1, err := tlsh.ParseStringToTlsh(d1)
+	if err != nil {
+		return 0, err
+	}
+	t2, err := tlsh.ParseStringToTlsh(d2)
 	if err != nil {
 		return 0, err
 	}
 
-	line := strings.TrimSpace(string(out))
-	if n, err := strconv.Atoi(line); err == nil {
-		return n, nil
-	}
-	if m := firstInt(line); m != nil {
-		return *m, nil
-	}
-	return 0, fmt.Errorf("parsing error: %s", line)
+	// Note: glaslos/tlsh Diff includes length.
+	// We ignore includeLen parameter as the library doesn't support excluding it easily without forking.
+	dist := t1.Diff(t2)
+
+	return dist, nil
 }
 
 // computeDistanceBatch computes distances in batch (Batch)
@@ -478,58 +436,24 @@ func computeDistanceBatch(ref string, digests []string, ids []string, includeLen
 		return nil, errors.New("digests and ids length mismatch")
 	}
 
-	tmpFile, err := os.CreateTemp("", "mi_tlsh_batch_*")
+	ref = strings.TrimPrefix(ref, "T1")
+	tRef, err := tlsh.ParseStringToTlsh(ref)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		tmpFile.Close()
-		os.Remove(tmpFile.Name())
-	}()
 
-	// 1) Write the list to a temporary file (format digest\tID)
+	results := make(map[string]int)
 	for i, digest := range digests {
-		line := fmt.Sprintf("%s\t%s\n", digest, ids[i])
-		if _, err := tmpFile.WriteString(line); err != nil {
-			return nil, err
-		}
-	}
-	tmpFile.Sync()
-
-	// 2) Call the binary with the -l argument
-	args := []string{"-c", ref, "-l", tmpFile.Name()}
-	if !includeLen {
-		args = append(args, "-xlen")
-	}
-
-	cmd := exec.Command(tlshBin, args...)
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("tlsh batch exec error: %w", err)
-	}
-
-	// 3) Parse output and map results
-	result := make(map[string]int, len(ids))
-	scanner := bufio.NewScanner(strings.NewReader(string(out)))
-	i := 0
-	for scanner.Scan() {
-		if i >= len(ids) {
-			break
-		}
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			i++
-			continue
+		d := strings.TrimPrefix(digest, "T1")
+		t, err := tlsh.ParseStringToTlsh(d)
+		if err != nil {
+			continue // Skip invalid hashes
 		}
 
-		dPtr := firstInt(line)
-		if dPtr != nil {
-			result[ids[i]] = *dPtr
-		}
-		i++
+		dist := tRef.Diff(t)
+		results[ids[i]] = dist
 	}
-
-	return result, nil
+	return results, nil
 }
 
 // --- Helpers and Workers ---

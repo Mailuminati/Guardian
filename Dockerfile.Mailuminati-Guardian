@@ -1,67 +1,38 @@
 # ==========================================
-# STEP 1: Compile the TLSH binary
-# ==========================================
-FROM debian:trixie AS tlsh-builder
-
-RUN apt-get update && apt-get install -y \
-    git \
-    cmake \
-    make \
-    g++ \
-  && rm -rf /var/lib/apt/lists/*
-
-WORKDIR /opt
-# Fetch and compile TLSH
-RUN git clone https://github.com/trendmicro/tlsh.git && \
-    cd tlsh && \
-    chmod +x ./make.sh && \
-    ./make.sh
-
-# The binary is generated in bin/tlsh
-RUN cp /opt/tlsh/bin/tlsh /usr/local/bin/tlsh
-
-
-# ==========================================
-# STEP 2: Compile the Mailuminati Guardian binary (Go)
+# STEP 1: Compile the Mailuminati Guardian binary (Go)
 # ==========================================
 FROM golang:1.25-trixie AS go-builder
 
 WORKDIR /app
 
-RUN go mod init mailuminati-guardian
+# Copy go.mod and go.sum first to leverage cache
+COPY mi_guardian/go.mod mi_guardian/go.sum ./
+RUN go mod download
 
 # Copy the source code
 COPY mi_guardian/*.go ./
-
-RUN go mod tidy
 
 # Build the binary
 RUN go build -o /app/mi_guardian
 
 
 # ==========================================
-# STEP 3: Final production image
+# STEP 2: Final production image
 # ==========================================
 FROM debian:trixie-slim
 
 # Install CA certificates (required for HTTPS calls to the Oracle)
-# and libstdc++ (required by the TLSH binary)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    libstdc++6 \
  && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user for security
 RUN useradd -r -u 10001 appuser
 
-# Retrieve the TLSH binary from step 1
-COPY --from=tlsh-builder /usr/local/bin/tlsh /usr/local/bin/tlsh
-
-# Retrieve the Go binary from step 2
+# Retrieve the Go binary from step 1
 COPY --from=go-builder /app/mi_guardian /usr/local/bin/mi_guardian
 
 # Configure default environment variables
-ENV TLSH_BIN=/usr/local/bin/tlsh
 ENV REDIS_HOST=mi-redis
 ENV REDIS_PORT=6379
 ENV ORACLE_URL=https://oracle.mailuminati.com

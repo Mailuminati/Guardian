@@ -294,7 +294,7 @@ configure_dovecot_integration() {
                  # Create the file with basic structure
                  {
                     echo "plugin {"
-                    echo "  sieve = file:~/sieve;active=~/.dovecot.sieve"
+                    echo "  sieve_pipe_bin_dir = /usr/local/bin"
                     echo "}" 
                  } | $sudo_cmd tee "$proposed_conf" >/dev/null
                  

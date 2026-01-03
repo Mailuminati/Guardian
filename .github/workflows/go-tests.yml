@@ -24,6 +24,7 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: '1.25'
+        cache-dependency-path: mi_guardian/go.sum
 
     - name: Install dependencies
       run: go mod download

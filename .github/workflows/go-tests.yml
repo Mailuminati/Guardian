@@ -1,0 +1,32 @@
+name: Go Tests
+
+on:
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'mi_guardian/**'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'mi_guardian/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./mi_guardian
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.25'
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run tests
+      run: go test -v ./...

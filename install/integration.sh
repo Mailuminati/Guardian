@@ -315,38 +315,36 @@ configure_dovecot_integration() {
     if grep -q "sieve_plugins.*sieve_imapsieve" "$DOVECOT_SIEVE_CONF" && \
        grep -q "sieve_plugins.*sieve_extprograms" "$DOVECOT_SIEVE_CONF"; then
         log_success "sieve_imapsieve and sieve_extprograms seem to be already enabled."
-        return 0
-    fi
-
-    echo
-    log_info "We need to ensure 'sieve_imapsieve' and 'sieve_extprograms' are in 'sieve_plugins'."
-    if ! confirm_yes_no "Attempt to patch $DOVECOT_SIEVE_CONF automatically?" "y"; then
-        log_info "Skipping. Please manually ensure: plugin { sieve_plugins = sieve_imapsieve sieve_extprograms }"
-        return 0
-    fi
-
-    $sudo_cmd cp "$DOVECOT_SIEVE_CONF" "${DOVECOT_SIEVE_CONF}.bak.$(date +%s)"
-    log_info "Backed up to ${DOVECOT_SIEVE_CONF}.bak.$(date +%s)"
-
-    if grep -q "^[[:space:]]*sieve_plugins[[:space:]]*=" "$DOVECOT_SIEVE_CONF"; then
-        log_info "sieve_plugins directive found. Appending missing plugins..."
-        if ! grep -q "sieve_imapsieve" "$DOVECOT_SIEVE_CONF"; then
-             $sudo_cmd sed -i 's/^\([[:space:]]*sieve_plugins[[:space:]]*=[^#]*\)/\1 sieve_imapsieve/' "$DOVECOT_SIEVE_CONF"
-             log_success "Added sieve_imapsieve"
-        fi
-        if ! grep -q "sieve_extprograms" "$DOVECOT_SIEVE_CONF"; then
-             $sudo_cmd sed -i 's/^\([[:space:]]*sieve_plugins[[:space:]]*=[^#]*\)/\1 sieve_extprograms/' "$DOVECOT_SIEVE_CONF"
-             log_success "Added sieve_extprograms"
-        fi
     else
-        if grep -q "^plugin[[:space:]]*{" "$DOVECOT_SIEVE_CONF"; then
-             log_info "Adding sieve_plugins directive to existing plugin block..."
-             $sudo_cmd sed -i '/^plugin[[:space:]]*{/a \  sieve_plugins = sieve_imapsieve sieve_extprograms' "$DOVECOT_SIEVE_CONF"
-             log_success "Added sieve_plugins directive."
+        echo
+        log_info "We need to ensure 'sieve_imapsieve' and 'sieve_extprograms' are in 'sieve_plugins'."
+        if ! confirm_yes_no "Attempt to patch $DOVECOT_SIEVE_CONF automatically?" "y"; then
+            log_info "Skipping. Please manually ensure: plugin { sieve_plugins = sieve_imapsieve sieve_extprograms }"
         else
-             log_info "No plugin block found. Appending one..."
-             echo -e "\nplugin {\n  sieve_plugins = sieve_imapsieve sieve_extprograms\n}\n" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF" >/dev/null
-             log_success "Appended plugin block."
+            $sudo_cmd cp "$DOVECOT_SIEVE_CONF" "${DOVECOT_SIEVE_CONF}.bak.$(date +%s)"
+            log_info "Backed up to ${DOVECOT_SIEVE_CONF}.bak.$(date +%s)"
+
+            if grep -q "^[[:space:]]*sieve_plugins[[:space:]]*=" "$DOVECOT_SIEVE_CONF"; then
+                log_info "sieve_plugins directive found. Appending missing plugins..."
+                if ! grep -q "sieve_imapsieve" "$DOVECOT_SIEVE_CONF"; then
+                    $sudo_cmd sed -i 's/^\([[:space:]]*sieve_plugins[[:space:]]*=[^#]*\)/\1 sieve_imapsieve/' "$DOVECOT_SIEVE_CONF"
+                    log_success "Added sieve_imapsieve"
+                fi
+                if ! grep -q "sieve_extprograms" "$DOVECOT_SIEVE_CONF"; then
+                    $sudo_cmd sed -i 's/^\([[:space:]]*sieve_plugins[[:space:]]*=[^#]*\)/\1 sieve_extprograms/' "$DOVECOT_SIEVE_CONF"
+                    log_success "Added sieve_extprograms"
+                fi
+            else
+                if grep -q "^plugin[[:space:]]*{" "$DOVECOT_SIEVE_CONF"; then
+                    log_info "Adding sieve_plugins directive to existing plugin block..."
+                    $sudo_cmd sed -i '/^plugin[[:space:]]*{/a \  sieve_plugins = sieve_imapsieve sieve_extprograms' "$DOVECOT_SIEVE_CONF"
+                    log_success "Added sieve_plugins directive."
+                else
+                    log_info "No plugin block found. Appending one..."
+                    echo -e "\nplugin {\n  sieve_plugins = sieve_imapsieve sieve_extprograms\n}\n" | $sudo_cmd tee -a "$DOVECOT_SIEVE_CONF" >/dev/null
+                    log_success "Appended plugin block."
+                fi
+            fi
         fi
     fi
 
@@ -436,6 +434,22 @@ pipe :copy "guardian-report.sh" ["ham"];' | $sudo_cmd tee "$report_ham_sieve" >/
         local cause="$3"
         local script="$4"
         
+        # Check if rule already exists
+        # We look for a block that has the same name, from (if set), cause and script
+        # This is a basic check to avoid duplicates
+        
+        local check_pattern="imapsieve_mailbox[0-9]*_name = \"$name\""
+        if grep -q "$check_pattern" "$DOVECOT_SIEVE_CONF"; then
+            # If name matches, check if other params match in the file (rough check)
+            # To be safe, we can just skip if we see the name and the script associated nearby
+            # But since IDs are unique, it's hard to grep multiline perfectly in shell without complex logic.
+            # Let's assume if we find the name AND the script in the file, it's likely already there.
+            if grep -q "file:$script" "$DOVECOT_SIEVE_CONF"; then
+                 log_info "Rule for mailbox '$name' with script '$script' seems to exist. Skipping."
+                 return
+            fi
+        fi
+
         max_id=$((max_id + 1))
         
         local config_block=""

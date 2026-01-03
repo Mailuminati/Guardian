@@ -30,7 +30,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion   = "0.4.0"
+	EngineVersion   = "0.4.1"
 	FragKeyPrefix   = "mi_f:"
 	LocalFragPrefix = "lg_f:"
 	MetaNodeID      = "mi_meta:id"

@@ -6,6 +6,8 @@ ENABLE_RSPAMD_INTEGRATION=1
 ENABLE_SPAMASSASSIN_INTEGRATION=1
 ENABLE_MTA_FILTER_CHECK=1
 OFFER_FILTER_INTEGRATION=1
+REDIS_HOST=""
+REDIS_PORT=""
 
 show_help() {
     cat <<'EOF'
@@ -15,6 +17,8 @@ Usage:
   ./install.sh [options]
 
 Options:
+  --redis-host <host>      Specify Redis host (default: localhost for source, mi-redis for docker)
+  --redis-port <port>      Specify Redis port (default: 6379)
   --no-rspamd              Disable Rspamd integration (even if installed)
   --no-spamassassin        Disable SpamAssassin integration (even if installed)
   --no-filter-check        Do not warn if no mail filter is installed
@@ -22,6 +26,8 @@ Options:
   -h, --help               Show this help
 
 Environment variables (override defaults):
+  REDIS_HOST
+  REDIS_PORT
   ENABLE_RSPAMD_INTEGRATION=0|1
   ENABLE_SPAMASSASSIN_INTEGRATION=0|1
   ENABLE_MTA_FILTER_CHECK=0|1
@@ -32,6 +38,24 @@ EOF
 parse_args() {
     while [ "$#" -gt 0 ]; do
         case "$1" in
+            --redis-host)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    REDIS_HOST="$2"
+                    shift
+                else
+                    log_error "Error: Argument for $1 is missing"
+                    exit 2
+                fi
+                ;;
+            --redis-port)
+                if [ -n "$2" ] && [ "${2:0:1}" != "-" ]; then
+                    REDIS_PORT="$2"
+                    shift
+                else
+                    log_error "Error: Argument for $1 is missing"
+                    exit 2
+                fi
+                ;;
             --no-rspamd)
                 ENABLE_RSPAMD_INTEGRATION=0
                 ;;

@@ -10,8 +10,8 @@ services:
     ports:
       - "1133:1133"
     environment:
-      - REDIS_HOST=mi-redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-mi-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
     depends_on:
       mi-redis:
         condition: service_healthy

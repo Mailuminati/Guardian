@@ -23,6 +23,11 @@ install_docker() {
         fi
 
         log_info "Building and starting services with Docker Compose..."
+        
+        # Generate .env file for Docker Compose
+        echo "REDIS_HOST=${REDIS_HOST:-mi-redis}" > "${INSTALLER_DIR}/.env"
+        echo "REDIS_PORT=${REDIS_PORT:-6379}" >> "${INSTALLER_DIR}/.env"
+        
         if docker_compose_v2_available; then
             compose_up_ok=0
             $DOCKER_SUDO docker compose -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build && compose_up_ok=1

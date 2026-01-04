@@ -82,6 +82,11 @@ install_source() {
                 log_success "Ownership of /opt/Mailuminati set to 'mailuminati'."
                 # Create systemd service
                 SERVICE_FILE="/etc/systemd/system/mailuminati-guardian.service"
+                
+                # Determine Redis config for systemd
+                local r_host="${REDIS_HOST:-localhost}"
+                local r_port="${REDIS_PORT:-6379}"
+
                 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=Mailuminati Guardian Service
@@ -93,6 +98,8 @@ ExecStart=/opt/Mailuminati/mailuminati-guardian
 Restart=always
 RestartSec=5
 User=mailuminati
+Environment="REDIS_HOST=${r_host}"
+Environment="REDIS_PORT=${r_port}"
 
 [Install]
 WantedBy=multi-user.target

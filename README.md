@@ -399,5 +399,10 @@ where local signals become part of a collective defense.
 
 ## License
 
-This project is released under the GPLv3 License.  
+This client is open-source software licensed under the GNU GPLv3.
+
+Copyright © 2025 Simon Bressier.
+
+Please note: This license applies strictly to the client-side code contained in this repository.
+
 See the [LICENSE](LICENSE) file for details.

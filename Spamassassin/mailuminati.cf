@@ -1,0 +1,16 @@
+# Mailuminati SpamAssassin Configuration
+
+loadplugin Mail::SpamAssassin::Plugin::Mailuminati Mailuminati.pm
+
+# Configuration options
+# mailuminati_endpoint http://127.0.0.1:1133/analyze
+# mailuminati_timeout 5
+
+# Define the rules
+header   MAILUMINATI_SPAM       eval:check_mailuminati_spam()
+describe MAILUMINATI_SPAM       Mailuminati detected this message as spam
+score    MAILUMINATI_SPAM       10.0
+
+header   MAILUMINATI_SUSPICIOUS eval:check_mailuminati_suspicious()
+describe MAILUMINATI_SUSPICIOUS Mailuminati detected suspicious content (proximity match)
+score    MAILUMINATI_SUSPICIOUS 5.0

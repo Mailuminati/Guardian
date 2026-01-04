@@ -46,18 +46,33 @@ get_spamassassin_name() {
 configure_spamassassin_integration() {
     detect_spamassassin_paths
 
+    if [ -z "$SA_CONF_DIR" ] || [ -z "$SA_PLUGIN_DIR" ]; then
+        log_error "Could not detect SpamAssassin configuration or plugin directories."
+        return 1
+    fi
+
+    log_info "Installing Mailuminati SpamAssassin plugin..."
+    
+    # Copy Plugin
+    cp "$(dirname "$0")/../../Spamassassin/Mailuminati.pm" "$SA_PLUGIN_DIR/"
+    log_success "Copied Mailuminati.pm to $SA_PLUGIN_DIR"
+
+    # Copy Config
+    cp "$(dirname "$0")/../../Spamassassin/mailuminati.cf" "$SA_CONF_DIR/"
+    log_success "Copied mailuminati.cf to $SA_CONF_DIR"
+
+    # Check for dependencies
+    if ! perl -MJSON -e 1 2>/dev/null; then
+        log_warn "Perl module JSON is missing. Please install it (e.g., apt install libjson-perl or cpan JSON)."
+    fi
+    if ! perl -MLWP::UserAgent -e 1 2>/dev/null; then
+        log_warn "Perl module LWP::UserAgent is missing. Please install it (e.g., apt install libwww-perl)."
+    fi
+
     echo -e "\n--------------------------------------------------"
-    log_info "SpamAssassin integration (manual steps):"
-    log_info "Detected paths (best-effort):"
-    echo " - SA_CONF_DIR:    ${SA_CONF_DIR:-<unknown>}"
-    echo " - SA_PLUGIN_DIR:  ${SA_PLUGIN_DIR:-<unknown>}"
-    echo
-    echo "1) Prefer placing your Mailuminati .cf rules in: ${SA_CONF_DIR:-/etc/mail/spamassassin}"
-    echo "2) If you ship a custom Perl plugin, place it in: ${SA_PLUGIN_DIR:-<perl site/lib>/Mail/SpamAssassin/Plugin}"
-    echo "3) Add a custom check (plugin or wrapper) that submits the message (MIME) to: http://127.0.0.1:1133/analyze"
-    echo "4) If response action==spam: add a rule hit and score accordingly."
-    echo "5) Optionally forward user feedback to: http://127.0.0.1:1133/report"
-    echo "6) Restart spamd/spamassassin service."
-    log_info "Note: This installer currently prints guidance only (no files are written)."
+    log_info "SpamAssassin integration installed."
+    log_info "Please restart SpamAssassin to apply changes:"
+    log_info "  systemctl restart spamassassin"
     echo -e "--------------------------------------------------\n"
 }
+

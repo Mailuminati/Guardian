@@ -84,10 +84,16 @@ configure_spamassassin_integration() {
         log_warn "Perl module LWP::UserAgent is missing. Please install it (e.g., apt install libwww-perl)."
     fi
 
+    #restart SpamAssassin
+    if command_exists systemctl; then
+        sudo systemctl restart spamassassin
+    else
+        sudo service spamassassin restart
+    fi
+
     echo -e "\n--------------------------------------------------"
     log_info "SpamAssassin integration installed."
-    log_info "Please restart SpamAssassin to apply changes:"
-    log_info "  systemctl restart spamassassin"
+    log_info "Please verify that SpamAssassin is running and the Mailuminati plugin is loaded."
     echo -e "--------------------------------------------------\n"
 }
 

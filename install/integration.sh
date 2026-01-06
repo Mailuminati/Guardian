@@ -157,4 +157,25 @@ offer_filter_integration() {
 post_start_flow() {
     wait_for_status_ready "http://localhost:1133/status" 30 || true
     offer_filter_integration
+
+    echo -e "\n--------------------------------------------------"
+    log_info "Retrieving Node Identity..."
+    local json_payload=""
+    json_payload="$(http_get "http://localhost:1133/status" 2>/dev/null || true)"
+    
+    # Simple extraction using grep/sed
+    local node_id_extracted=""
+    if [ -n "$json_payload" ]; then
+        node_id_extracted=$(echo "$json_payload" | grep -o '"node_id":[[:space:]]*"[^"]*"' | sed 's/"node_id":[[:space:]]*"//;s/"//')
+    fi
+
+    if [ -n "$node_id_extracted" ]; then
+        log_success "Node Identity: $node_id_extracted"
+        echo -e "${COLOR_GREEN}Register your node to visualize local metrics & global impact:${COLOR_RESET}"
+        echo -e "👉 https://guardian.mailuminati.com/signup.php?node_id=$node_id_extracted"
+    else
+        log_warning "Could not retrieve Node Identity automatically."
+        echo "You can find it later by querying: curl http://localhost:1133/status"
+    fi
+    echo -e "--------------------------------------------------\n"
 }

@@ -42,14 +42,15 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion   = "0.4.1"
-	FragKeyPrefix   = "mi_f:"
-	LocalFragPrefix = "lg_f:"
-	MetaNodeID      = "mi_meta:id"
-	MetaVer         = "mi_meta:v"
-	DefaultOracle   = "https://oracle.mailuminati.com"
-	MaxProcessSize  = 15 * 1024 * 1024 // 15 MB max
-	MinVisualSize   = 50 * 1024        // Ignore small logos/trackers
+	EngineVersion    = "0.4.3"
+	FragKeyPrefix    = "mi_f:"
+	LocalFragPrefix  = "lg_f:"
+	LocalScorePrefix = "lg_s:"
+	MetaNodeID       = "mi_meta:id"
+	MetaVer          = "mi_meta:v"
+	DefaultOracle    = "https://oracle.mailuminati.com"
+	MaxProcessSize   = 15 * 1024 * 1024 // 15 MB max
+	MinVisualSize    = 50 * 1024        // Ignore small logos/trackers
 )
 
 var (
@@ -63,6 +64,8 @@ var (
 	cachedPositiveCount int64
 	cachedNegativeCount int64
 	localSpamCount      int64
+	spamWeight          int64
+	hamWeight           int64
 )
 
 type AnalysisResult struct {
@@ -95,6 +98,22 @@ func main() {
 	redisHost := getEnv("REDIS_HOST", "localhost")
 	redisPort := getEnv("REDIS_PORT", "6379")
 	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+
+	// Load weights from env
+	swStr := getEnv("SPAM_WEIGHT", "1")
+	hwStr := getEnv("HAM_WEIGHT", "2")
+
+	if sw, err := strconv.ParseInt(swStr, 10, 64); err == nil {
+		spamWeight = sw
+	} else {
+		spamWeight = 1
+	}
+
+	if hw, err := strconv.ParseInt(hwStr, 10, 64); err == nil {
+		hamWeight = hw
+	} else {
+		hamWeight = 2
+	}
 
 	rdb = redis.NewClient(&redis.Options{
 		Addr: redisAddr,
@@ -242,11 +261,17 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 					isLocalSpam := false
 					for hash, dist := range distances {
 						if dist <= 70 {
-							log.Printf("[Mailuminati] Local spam detected! Message-ID: %s | Subject: %s | Signature: %s | Match: %s", messageID, subject, sig, hash)
-							finalResult = AnalysisResult{Action: "spam", Label: "local_spam", ProximityMatch: true, Distance: dist}
-							atomic.AddInt64(&localSpamCount, 1)
-							isLocalSpam = true
-							break // A single match is enough
+							// Check score
+							scoreKey := LocalScorePrefix + hash
+							scoreVal, _ := rdb.Get(ctx, scoreKey).Int64()
+
+							if scoreVal > 0 {
+								log.Printf("[Mailuminati] Local spam detected! Message-ID: %s | Subject: %s | Signature: %s | Match: %s | Score: %d", messageID, subject, sig, hash, scoreVal)
+								finalResult = AnalysisResult{Action: "spam", Label: "local_spam", ProximityMatch: true, Distance: dist}
+								atomic.AddInt64(&localSpamCount, 1)
+								isLocalSpam = true
+								break // A single match is enough
+							}
 						}
 					}
 					if isLocalSpam {
@@ -335,6 +360,20 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	hasher := sha1.New()
 	hasher.Write([]byte(reqBody.MessageID))
 	sha1Hash := hex.EncodeToString(hasher.Sum(nil))
+
+	// Prevent duplicate reports for the same type
+	reportKey := "mi:rpt:" + sha1Hash + ":" + reqBody.ReportType
+	if added, err := rdb.SetNX(ctx, reportKey, "1", 24*time.Hour).Result(); err != nil {
+		http.Error(w, "Redis error", http.StatusInternalServerError)
+		return
+	} else if !added {
+		log.Printf("[Mailuminati] Duplicate %s report ignored for Message-ID: %s", reqBody.ReportType, reqBody.MessageID)
+		w.WriteHeader(http.StatusConflict)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"status":"duplicate","message":"Already reported"}`))
+		return
+	}
+
 	key := "mi:msgid:" + sha1Hash
 
 	val, err := rdb.Get(ctx, key).Result()
@@ -353,14 +392,15 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// --- Local learning ---
-	if reqBody.ReportType == "spam" {
-		log.Printf("[Mailuminati] Processing spam report for Message-ID: %s", reqBody.MessageID)
+	skipOracleReport := false
+
+	if reqBody.ReportType == "spam" || reqBody.ReportType == "ham" {
+		log.Printf("[Mailuminati] Processing %s report for Message-ID: %s", reqBody.ReportType, reqBody.MessageID)
 
 		for _, hash := range scanData.Hashes {
 			bands := extractBands_6_3(hash)
-			shouldLearn := true
 
-			// Check if we already know this spam locally
+			// 1. Identify candidates using LSH
 			pipe := rdb.Pipeline()
 			localCmds := make(map[string]*redis.IntCmd)
 			for _, b := range bands {
@@ -376,8 +416,11 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 
+			var bestMatchHash string
+			var bestMatchDist int = 9999
+
 			if len(matchingBandsKeys) >= 4 {
-				// Potential match found, retrieve candidate hashes
+				// Get candidates
 				pipe = rdb.Pipeline()
 				hashCmds := make(map[string]*redis.StringSliceCmd)
 				for _, key := range matchingBandsKeys {
@@ -398,32 +441,69 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if len(candidateList) > 0 {
+					// Compute distances
 					distances, err := computeDistanceBatch(hash, candidateList, candidateList, false)
 					if err == nil {
-						for _, dist := range distances {
-							if dist <= 70 {
-								shouldLearn = false
-								log.Printf("[Mailuminati] Skipping learning for hash %s (too close to existing spam, dist=%d)", hash, dist)
-								break
+						for h, dist := range distances {
+							if dist < bestMatchDist {
+								bestMatchDist = dist
+								bestMatchHash = h
 							}
 						}
 					}
 				}
 			}
 
-			if shouldLearn {
+			// Decision Logic
+			targetHash := hash // Default: the reported hash itself
+			if bestMatchDist <= 70 {
+				targetHash = bestMatchHash
+			}
+
+			scoreKey := LocalScorePrefix + targetHash
+
+			if reqBody.ReportType == "spam" {
+				if bestMatchDist <= 70 {
+					// Already known locally
+					skipOracleReport = true
+				}
+
+				// Increment score
+				newScore, _ := rdb.IncrBy(ctx, scoreKey, spamWeight).Result()
+
+				// Refresh/Add bands
 				pipe := rdb.Pipeline()
-				for _, band := range bands {
+				targetBands := extractBands_6_3(targetHash)
+				for _, band := range targetBands {
 					key := LocalFragPrefix + band
-					pipe.SAdd(ctx, key, hash)
+					pipe.SAdd(ctx, key, targetHash)
 					pipe.Expire(ctx, key, 15*24*time.Hour)
 				}
+				pipe.Expire(ctx, scoreKey, 15*24*time.Hour)
 				pipe.Exec(ctx)
-				log.Printf("[Mailuminati] Learned new spam hash: %s", hash)
+				log.Printf("[Mailuminati] Learned spam hash: %s (Score: %d)", targetHash, newScore)
+
+			} else if reqBody.ReportType == "ham" {
+				if bestMatchDist <= 70 {
+					// Found a corresponding spam entry to punish
+					newScore, _ := rdb.DecrBy(ctx, scoreKey, hamWeight).Result()
+					log.Printf("[Mailuminati] Ham report for hash: %s (Score: %d)", targetHash, newScore)
+
+					// Refresh TTL (keep it alive even if negative)
+					rdb.Expire(ctx, scoreKey, 15*24*time.Hour)
+				}
 			}
 		}
 	}
 	// --- End local learning ---
+
+	if reqBody.ReportType == "spam" && skipOracleReport {
+		log.Printf("[Mailuminati] Skip Oracle report for Message-ID: %s (Already known)", reqBody.MessageID)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK) // Return 200 OK
+		w.Write([]byte(`{"status":"skipped_oracle","reason":"known_locally"}`))
+		return
+	}
 
 	payload, _ := json.Marshal(map[string]interface{}{
 		"node_id":     nodeID,
@@ -655,7 +735,11 @@ func syncWorker() {
 
 func doSync() {
 	currentSeq, _ := rdb.Get(ctx, MetaVer).Int()
-	payload, _ := json.Marshal(map[string]interface{}{"node_id": nodeID, "current_seq": currentSeq})
+	payload, _ := json.Marshal(map[string]interface{}{
+		"node_id":     nodeID,
+		"current_seq": currentSeq,
+		"version":     EngineVersion,
+	})
 
 	resp, err := http.Post(oracleURL+"/sync", "application/json", bytes.NewBuffer(payload))
 	if err != nil || resp.StatusCode != http.StatusOK {

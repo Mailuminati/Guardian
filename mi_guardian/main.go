@@ -37,7 +37,6 @@ import (
 	"github.com/glaslos/tlsh"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
-	"github.com/jaytaylor/html2text"
 	"github.com/jhillyerd/enmime"
 )
 
@@ -184,25 +183,6 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 	if len(rawBody) > 100 {
 		if sig, err := computeLocalTLSH(rawBody); err == nil {
 			signatures = append(signatures, sig)
-		}
-	}
-
-	// 3. Extra Hash: HTML-only converted to text, then normalized
-	if env.HTML != "" {
-		htmlAsText, err := html2text.FromString(env.HTML, html2text.Options{PrettyTables: true})
-		if err == nil {
-			// Count words to ensure it's significant enough
-			words := strings.Fields(htmlAsText)
-			if len(words) >= 20 {
-				normHtmlText := normalizeEmailBody(htmlAsText, "") // Pass as text to normalize
-				if len(normHtmlText) > 100 {
-					if sig, err := computeLocalTLSH(normHtmlText); err == nil {
-						signatures = append(signatures, sig)
-					}
-				}
-			}
-		} else {
-			log.Printf("[Mailuminati] Failed to convert HTML to text: %v", err)
 		}
 	}
 

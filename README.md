@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.25-blue" alt="Go">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="License">
   <a href="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml"><img src="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml/badge.svg" alt="Go Tests"></a>
 </p>
 

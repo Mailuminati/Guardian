@@ -42,7 +42,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion    = "0.4.4"
+	EngineVersion    = "0.4.5"
 	FragKeyPrefix    = "mi_f:"
 	LocalFragPrefix  = "lg_f:"
 	LocalScorePrefix = "lg_s:"

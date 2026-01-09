@@ -132,3 +132,50 @@ check_redis() {
         return 2 # Return a specific code for warning
     fi
 }
+
+# 7. Check Redis connectivity (if external host provided)
+check_redis_connectivity() {
+    local host="$1"
+    local port="${2:-6379}"
+
+    if [ -z "$host" ]; then
+        return 0
+    fi
+
+    log_info "Checking Redis connectivity on ${host}:${port}..."
+
+    # Method 1: Bash built-in /dev/tcp with timeout
+    if command_exists timeout; then
+        if timeout 3 bash -c "</dev/tcp/${host}/${port}" &>/dev/null; then
+             log_success "Successfully connected to Redis at ${host}:${port}."
+             return 0
+        fi
+    # Method 2: Netcat (nc)
+    elif command_exists nc; then
+         if nc -z -w 3 "$host" "$port" &>/dev/null; then
+             log_success "Successfully connected to Redis at ${host}:${port}."
+             return 0
+         fi
+    # Method 3: Python (common on linux servers)
+    elif command_exists python3; then
+         if python3 -c "import socket;s=socket.socket();s.settimeout(3);s.connect(('$host', int($port)));s.close()" &>/dev/null; then
+             log_success "Successfully connected to Redis at ${host}:${port}."
+             return 0
+         fi
+    else
+        log_warning "Cannot verify Redis connectivity: 'timeout', 'nc' or 'python3' not found. Skipping check."
+        return 0
+    fi
+
+    # If we reached here, all attempts failed
+    log_error "Could not connect to Redis at ${host}:${port}."
+    log_info "Please check:"
+    log_info " - Is Redis running on that host?"
+    log_info " - Is it listening on 0.0.0.0 (or accessible IP) instead of 127.0.0.1?"
+    log_info " - Are firewall rules allowing connection on port ${port}?"
+    
+    if ! confirm_yes_no "Continue anyway" "n"; then
+        return 1
+    fi
+    return 0
+}

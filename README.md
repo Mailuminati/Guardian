@@ -4,7 +4,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.25-blue" alt="Go">
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License">
+  <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="License">
   <a href="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml"><img src="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml/badge.svg" alt="Go Tests"></a>
 </p>
 
@@ -383,6 +383,11 @@ Guardian’s API behavior depends on these environment variables:
 
 - `REDIS_HOST` (default: `localhost`)
 - `REDIS_PORT` (default: `6379`)
+
+- **`SPAM_WEIGHT`**: Defines the weight (or score increment) applied to a hash when it is reported as spam. Default value: `1`.
+- **`HAM_WEIGHT`**: Defines the weight (or score decrement) applied to a hash when it is reported as ham (false positive). Default value: `2`.
+
+These variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
 
 ---
 

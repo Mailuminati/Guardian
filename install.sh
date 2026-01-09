@@ -112,6 +112,14 @@ main() {
 
     parse_args "$@"
 
+    # Optional: Verify external Redis connectivity if specified
+    if [ -n "$REDIS_HOST" ]; then
+        if ! check_redis_connectivity "$REDIS_HOST" "$REDIS_PORT"; then
+             log_error "Redis connectivity check failed. Aborting."
+             exit 1
+        fi
+    fi
+
     init_docker_sudo
 
     # Optional environment hints (only warn when missing)

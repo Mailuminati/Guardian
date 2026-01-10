@@ -73,18 +73,18 @@ configure_spamassassin_integration() {
     local PROJECT_ROOT="$( cd "$SCRIPT_DIR/../../" && pwd )"
 
     # Copy Plugin
-    if cp "$PROJECT_ROOT/Spamassassin/Mailuminati.pm" "$SA_PLUGIN_DIR/"; then
+    if sudo cp "$PROJECT_ROOT/Spamassassin/Mailuminati.pm" "$SA_PLUGIN_DIR/"; then
         log_success "Copied Mailuminati.pm to $SA_PLUGIN_DIR"
     else
-        log_error "Failed to copy Mailuminati.pm from $PROJECT_ROOT/Spamassassin/"
+        log_error "Failed to copy Mailuminati.pm from $PROJECT_ROOT/Spamassassin/ to $SA_PLUGIN_DIR"
         return 1
     fi
 
     # Copy Config
-    if cp "$PROJECT_ROOT/Spamassassin/mailuminati.cf" "$SA_CONF_DIR/"; then
+    if sudo cp "$PROJECT_ROOT/Spamassassin/mailuminati.cf" "$SA_CONF_DIR/"; then
         log_success "Copied mailuminati.cf to $SA_CONF_DIR"
     else
-        log_error "Failed to copy mailuminati.cf from $PROJECT_ROOT/Spamassassin/"
+        log_error "Failed to copy mailuminati.cf from $PROJECT_ROOT/Spamassassin/ to $SA_CONF_DIR"
         return 1
     fi
 

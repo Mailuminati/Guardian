@@ -15,7 +15,7 @@
 
 # Mailuminati SpamAssassin Configuration
 
-loadplugin Mail::SpamAssassin::Plugin::Mailuminati Mailuminati.pm
+loadplugin Mail::SpamAssassin::Plugin::Mailuminati
 
 # Configuration options
 # mailuminati_endpoint http://127.0.0.1:12421/analyze

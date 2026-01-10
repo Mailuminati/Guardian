@@ -68,13 +68,25 @@ configure_spamassassin_integration() {
 
     log_info "Installing Mailuminati SpamAssassin plugin..."
     
+    # Safe path resolution
+    local SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+    local PROJECT_ROOT="$( cd "$SCRIPT_DIR/../../" && pwd )"
+
     # Copy Plugin
-    cp "$(dirname "$0")/../../Spamassassin/Mailuminati.pm" "$SA_PLUGIN_DIR/"
-    log_success "Copied Mailuminati.pm to $SA_PLUGIN_DIR"
+    if cp "$PROJECT_ROOT/Spamassassin/Mailuminati.pm" "$SA_PLUGIN_DIR/"; then
+        log_success "Copied Mailuminati.pm to $SA_PLUGIN_DIR"
+    else
+        log_error "Failed to copy Mailuminati.pm from $PROJECT_ROOT/Spamassassin/"
+        return 1
+    fi
 
     # Copy Config
-    cp "$(dirname "$0")/../../Spamassassin/mailuminati.cf" "$SA_CONF_DIR/"
-    log_success "Copied mailuminati.cf to $SA_CONF_DIR"
+    if cp "$PROJECT_ROOT/Spamassassin/mailuminati.cf" "$SA_CONF_DIR/"; then
+        log_success "Copied mailuminati.cf to $SA_CONF_DIR"
+    else
+        log_error "Failed to copy mailuminati.cf from $PROJECT_ROOT/Spamassassin/"
+        return 1
+    fi
 
     # Check for dependencies
     if ! perl -MJSON -e 1 2>/dev/null; then
@@ -84,11 +96,36 @@ configure_spamassassin_integration() {
         log_warn "Perl module LWP::UserAgent is missing. Please install it (e.g., apt install libwww-perl)."
     fi
 
-    #restart SpamAssassin
+    # Restart SpamAssassin
+    log_info "Restarting SpamAssassin..."
+    local SERVICES="spamassassin spamd"
+    local RESTARTED=0
+    
     if command_exists systemctl; then
-        sudo systemctl restart spamassassin
-    else
-        sudo service spamassassin restart
+        for svc in $SERVICES; do
+            # Check if service exists (enabled or not)
+            if systemctl list-unit-files "$svc.service" >/dev/null 2>&1 || systemctl list-units --all "$svc.service" | grep -q "$svc.service"; then
+                if sudo systemctl restart "$svc.service"; then
+                    log_success "Restarted $svc.service"
+                    RESTARTED=1
+                    break
+                fi
+            fi
+        done
+    elif command_exists service; then
+        for svc in $SERVICES; do
+             if service "$svc" status >/dev/null 2>&1 || service --status-all 2>&1 | grep -q "$svc"; then
+                if sudo service "$svc" restart; then
+                     log_success "Restarted $svc"
+                     RESTARTED=1
+                     break
+                fi
+             fi
+        done
+    fi
+    
+    if [ "$RESTARTED" -eq "0" ]; then
+        log_warn "Could not restart SpamAssassin automatically. Please restart 'spamassassin' or 'spamd' manually."
     fi
 
     echo -e "\n--------------------------------------------------"

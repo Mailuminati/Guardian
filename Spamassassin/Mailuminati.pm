@@ -92,8 +92,7 @@ sub _run_scan {
         
         if (defined $json->{action} && ($json->{action} eq 'spam' || $json->{action} eq 'reject')) {
              $pms->{mailuminati_result}->{spam} = 1;
-        }
-        if (defined $json->{proximity_match} && $json->{proximity_match}) {
+        } elsif (defined $json->{proximity_match} && $json->{proximity_match}) {
              $pms->{mailuminati_result}->{susp} = 1;
         }
     } else {

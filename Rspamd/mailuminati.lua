@@ -65,7 +65,7 @@ local function tlsh_check(task)
                 if obj.hashes and type(obj.hashes) == 'table' and #obj.hashes > 0 then
                     task:cache_set('mailuminati_hashes', obj.hashes)
                 end
-                if obj.action == "reject" then
+                if obj.action == "spam" or obj.action == "reject" then
                     task:insert_result("MAILUMINATI_SPAM", 1.0, obj.label or "match")
                 elseif obj.proximity_match == true then
                     task:insert_result("MAILUMINATI_SUSPICIOUS", 1.0)

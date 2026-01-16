@@ -23,6 +23,7 @@ ENABLE_MTA_FILTER_CHECK=1
 OFFER_FILTER_INTEGRATION=1
 REDIS_HOST=""
 REDIS_PORT=""
+FORCE_REINSTALL=0
 
 show_help() {
     cat <<'EOF'
@@ -34,6 +35,7 @@ Usage:
 Options:
   --redis-host <host>      Specify Redis host (default: localhost for source, mi-redis for docker)
   --redis-port <port>      Specify Redis port (default: 6379)
+  --force-reinstall        Force re-installation even if version matches
   --no-rspamd              Disable Rspamd integration (even if installed)
   --no-spamassassin        Disable SpamAssassin integration (even if installed)
   --no-filter-check        Do not warn if no mail filter is installed
@@ -43,6 +45,7 @@ Options:
 Environment variables (override defaults):
   REDIS_HOST
   REDIS_PORT
+  FORCE_REINSTALL=0|1
   ENABLE_RSPAMD_INTEGRATION=0|1
   ENABLE_SPAMASSASSIN_INTEGRATION=0|1
   ENABLE_MTA_FILTER_CHECK=0|1
@@ -70,6 +73,9 @@ parse_args() {
                     log_error "Error: Argument for $1 is missing"
                     exit 2
                 fi
+                ;;
+            --force-reinstall)
+                FORCE_REINSTALL=1
                 ;;
             --no-rspamd)
                 ENABLE_RSPAMD_INTEGRATION=0

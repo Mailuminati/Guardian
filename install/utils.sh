@@ -55,6 +55,90 @@ docker_needs_sudo() {
     return 0
 }
 
+# Function to detect and select bind address
+select_bind_address() {
+    {
+        echo -e "\n--------------------------------------------------"
+        log_info "Network Configuration: Select interface to listen on"
+        echo "--------------------------------------------------"
+        
+        local ips=()
+        local i=1
+        
+        # Defaults
+        echo "1) Localhost only (127.0.0.1) [Default - Most Secure]"
+        ips+=("127.0.0.1")
+        
+        echo "2) All interfaces (0.0.0.0) [Public/Internet exposure]"
+        ips+=("0.0.0.0")
+
+        # Detect other IPs
+        if command_exists ip; then
+            while read -r line; do
+                local ip=$(echo "$line" | awk '{print $4}' | cut -d/ -f1)
+                local dev=$(echo "$line" | awk '{print $2}')
+                if [ -n "$ip" ] && [ "$ip" != "127.0.0.1" ]; then
+                     echo "$((i+2))) Detected: $ip ($dev)"
+                     ips+=("$ip")
+                     ((i++))
+                fi
+            done < <(ip -o -4 addr list)
+        
+        elif command_exists ifconfig; then
+            # Simple loop for macOS (BSD style ifconfig)
+            # Find lines starting with identifier, then look for inet
+            local current_iface=""
+            while read -r line; do
+                if [[ "$line" =~ ^[a-zA-Z0-9]+: ]]; then
+                    current_iface=$(echo "$line" | cut -d: -f1)
+                fi
+                if [[ "$line" =~ inet\ ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+                    local ip="${BASH_REMATCH[1]}"
+                    if [ "$ip" != "127.0.0.1" ]; then
+                       echo "$((i+2))) Detected: $ip ($current_iface)"
+                       ips+=("$ip")
+                       ((i++))
+                    fi
+                fi
+            done < <(ifconfig)
+
+        elif command_exists hostname; then
+            # Fallback
+            local simple_ips=$(hostname -I 2>/dev/null) 
+             if [ -n "$simple_ips" ]; then
+                for ip in $simple_ips; do
+                    if [ -n "$ip" ] && [ "$ip" != "127.0.0.1" ]; then
+                        echo "$((i+2))) Detected: $ip"
+                        ips+=("$ip")
+                        ((i++))
+                    fi
+                done
+            fi
+        fi
+    } >&2
+
+    local choice
+    local selected_ip
+    
+    while true; do
+        # Prompt to stderr
+        read -r -p "Select an option [1]: " choice 
+        choice=${choice:-1}
+        
+        # Check if choice is numeric
+        if [[ "$choice" =~ ^[0-9]+$ ]]; then
+             local index=$((choice-1))
+             if [ $index -ge 0 ] && [ $index -lt ${#ips[@]} ]; then
+                 selected_ip="${ips[$index]}"
+                 break
+             fi
+        fi
+        log_error "Invalid selection. Please try again." >&2
+    done
+
+    echo "$selected_ip"
+}
+
 http_get() {
     local url="$1"
     if command_exists curl; then

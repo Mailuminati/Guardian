@@ -247,6 +247,27 @@ Common options:
   ./install.sh --no-rspamd
   ./install.sh --no-spamassassin
   ```
+  
+- **Force Re-installation**:
+  Force the re-installation of the Guardian engine even if the version matches:
+  ```sh
+  ./install.sh --force-reinstall
+  ```
+
+### Environment Variables
+
+The installer and subsequent runtime use several environment variables. You can set them before running `install.sh` or edit them in the generated configuration files later.
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mi-redis` (Docker) |
+| `REDIS_PORT` | Port of the Redis server | `6379` |
+| `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
+| `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
+| `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
+| `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
+
+The last two variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
 
 ---
 
@@ -376,18 +397,6 @@ curl -sS -X POST \
 Notes:
 - If Guardian has no stored scan data for this `Message-ID`, it returns `404 No scan data found`.
 - The response body/status code are proxied from the Oracle when reachable.
-
-### Configuration (env vars)
-
-Guardian’s API behavior depends on these environment variables:
-
-- `REDIS_HOST` (default: `localhost`)
-- `REDIS_PORT` (default: `6379`)
-
-- **`SPAM_WEIGHT`**: Defines the weight (or score increment) applied to a hash when it is reported as spam. Default value: `1`.
-- **`HAM_WEIGHT`**: Defines the weight (or score decrement) applied to a hash when it is reported as ham (false positive). Default value: `2`.
-
-These variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
 
 ---
 

@@ -43,6 +43,19 @@ install_docker() {
         echo "REDIS_HOST=${REDIS_HOST:-mi-redis}" > "${INSTALLER_DIR}/.env"
         echo "REDIS_PORT=${REDIS_PORT:-6379}" >> "${INSTALLER_DIR}/.env"
         
+        # Binding option
+        local selected_bind_ip
+        selected_bind_ip=$(select_bind_address)
+        echo "GUARDIAN_BIND_ADDR=${selected_bind_ip}" >> "${INSTALLER_DIR}/.env"
+        log_info "Configuration saved: Guardian will listen on ${selected_bind_ip}:12421"
+        
+        local bind_ip="${selected_bind_ip}"
+        
+        # Fallback to localhost for curl check if binding to 0.0.0.0
+        if [ "$bind_ip" == "0.0.0.0" ]; then
+             bind_ip="127.0.0.1"
+        fi
+
         if docker_compose_v2_available; then
             compose_up_ok=0
             # If REDIS_HOST is specified and differs from default "mi-redis", assume external Redis and only start mi-guardian

@@ -58,6 +58,10 @@ install_source() {
                 local r_host="${REDIS_HOST:-localhost}"
                 local r_port="${REDIS_PORT:-6379}"
 
+                # Binding option
+                local bind_addr=$(select_bind_address)
+                log_info "Guardian will be exposed on ${bind_addr}:12421"
+
                 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
 Description=Mailuminati Guardian Service
@@ -71,6 +75,7 @@ RestartSec=5
 User=mailuminati
 Environment="REDIS_HOST=${r_host}"
 Environment="REDIS_PORT=${r_port}"
+Environment="GUARDIAN_BIND_ADDR=${bind_addr}"
 
 [Install]
 WantedBy=multi-user.target

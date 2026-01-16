@@ -42,7 +42,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion    = "0.4.5"
+	EngineVersion    = "0.4.6"
 	FragKeyPrefix    = "mi_f:"
 	LocalFragPrefix  = "lg_f:"
 	LocalScorePrefix = "lg_s:"
@@ -136,8 +136,9 @@ func main() {
 	http.HandleFunc("/status", logRequestHandler(statusHandler))
 
 	port := getEnv("PORT", "12421")
-	log.Printf("[Mailuminati] MTA bridge ready on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	bindAddr := getEnv("GUARDIAN_BIND_ADDR", "127.0.0.1")
+	log.Printf("[Mailuminati] MTA bridge ready on %s:%s", bindAddr, port)
+	log.Fatal(http.ListenAndServe(bindAddr+":"+port, nil))
 }
 
 // --- Handlers ---

@@ -24,7 +24,7 @@
 # ==============================================================================
 
 # Version
-GUARDIAN_VERSION="0.4.5"
+GUARDIAN_VERSION="0.4.6"
 
 # Directory where this installer resides (so relative paths work even if run from elsewhere)
 INSTALLER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -144,14 +144,16 @@ main() {
     fi
 
     if [ -n "$running_version" ]; then
-        if [ "$running_version" = "$GUARDIAN_VERSION" ]; then
+        if [ "$FORCE_REINSTALL" = "1" ]; then
+             log_info "Mailuminati Guardian is running version $running_version, but forced re-install requested."
+        elif [ "$running_version" = "$GUARDIAN_VERSION" ]; then
             log_success "Mailuminati Guardian is already running version $running_version matching installer version."
             log_info "Skipping core installation."
             log_info "Proceeding directly to integration configuration..."
             post_start_flow
             exit 0
         else
-            log_info "Found running Guardian version $running_version. Installer version is $GUARDIAN_VERSION."
+            log_info "Existing version $running_version detected. Upgrading to $GUARDIAN_VERSION."
         fi
     fi
 

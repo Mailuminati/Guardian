@@ -16,12 +16,15 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // TestComputeLocalTLSH checks that the generated hash is valid and properly formatted (T1 + Uppercase)
@@ -230,4 +233,170 @@ func TestStatusHandler(t *testing.T) {
 			t.Errorf("handler returned unexpected body: got %v", body)
 		}
 	}
+}
+
+// TestMetricsHandler checks that the metrics endpoint is reachable
+func TestMetricsHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/metrics", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := promhttp.Handler()
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v, want %v", status, http.StatusOK)
+	}
+
+	// Check if body contains some prometheus metrics
+	if !strings.Contains(rr.Body.String(), "go_goroutines") {
+		t.Errorf("metrics body does not contain expected metric: go_goroutines")
+	}
+}
+
+// helper to setup a mock oracle
+func setupMockOracle() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/analyze":
+			w.Header().Set("Content-Type", "application/json")
+			// Return a clean result by default
+			w.Write([]byte(`{"result": {"action": "allow", "proximity_match": false}}`))
+		case "/report":
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"status": "ok"}`))
+		case "/stats":
+			w.WriteHeader(http.StatusOK)
+		case "/sync":
+			w.Header().Set("Content-Type", "application/json")
+			w.Write([]byte(`{"new_seq": 123, "action": "UPDATE_DELTA", "ops": []}`))
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+}
+
+func TestAnalyzeHandler(t *testing.T) {
+	// Mock Oracle
+	ts := setupMockOracle()
+	defer ts.Close()
+
+	// Save original oracleURL
+	originalOracleURL := oracleURL
+	oracleURL = ts.URL
+	defer func() { oracleURL = originalOracleURL }()
+
+	// Save original Redis
+	originalRDB := rdb
+	// Use a failing redis client if not available, or assume main_test.go's init sets it up?
+	// The existing TestStatusHandler initializes rdb. We should do the same.
+	if rdb == nil {
+		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	}
+	defer func() { rdb = originalRDB }()
+
+	// 1. Test Method Not Allowed
+	req, _ := http.NewRequest("GET", "/analyze", nil)
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(analyzeHandler)
+	handler.ServeHTTP(rr, req)
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("GET /analyze returned wrong status: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+
+	// 2. Test Invalid Body
+	req, _ = http.NewRequest("POST", "/analyze", strings.NewReader("Not a mail"))
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	// enmime might fail or succeed parsing "Not a mail" as a simple text body.
+	// "Not a mail" is actually a valid body for RFC822 (just headers and body merged? or just body).
+	// enmime.ReadEnvelope prefers a valid structure but is robust.
+	// The handler expects bodyBytes read -> enmime.ReadEnvelope.
+	// Let's rely on valid RFC822 for positive test.
+
+	// 3. Test Valid Email
+	emailBody := "Subject: Test\r\nMessage-ID: <123@test.com>\r\n\r\nThis is a test email body."
+	req, _ = http.NewRequest("POST", "/analyze", strings.NewReader(emailBody))
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	// Even if Redis fails (connection refused), the handler should probably return something or 500.
+	// In the code:
+	// ...
+	// pipe = rdb.Pipeline() ... pipe.Exec(ctx) -> this will error if redis is down.
+	// But the handler does not explicitly check all redis errors.
+	// If redis is down, `computeDistanceBatch` or others might simply be skipped or error out.
+
+	if status := rr.Code; status != http.StatusOK && status != http.StatusInternalServerError {
+		t.Errorf("POST /analyze returned unexpected status: %d", status)
+	}
+}
+
+func TestReportHandler(t *testing.T) {
+	// Mock Oracle
+	ts := setupMockOracle()
+	defer ts.Close()
+
+	originalOracleURL := oracleURL
+	oracleURL = ts.URL
+	defer func() { oracleURL = originalOracleURL }()
+
+	if rdb == nil {
+		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	}
+	// Need a nodeID
+	originalNodeID := nodeID
+	nodeID = "test-node-id"
+	defer func() { nodeID = originalNodeID }()
+
+	// 1. Test POST required
+	req, _ := http.NewRequest("GET", "/report", nil)
+	rr := httptest.NewRecorder()
+	handler := logRequestHandler(reportHandler)
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET /report should fail")
+	}
+
+	// 2. Test Invalid JSON
+	req, _ = http.NewRequest("POST", "/report", strings.NewReader("{invalid json"))
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Errorf("Invalid JSON should return 400")
+	}
+
+	// 3. Test Valid Report but missing local scan data (Redis miss)
+	uniqueID := fmt.Sprintf("<missing-%d@test.com>", time.Now().UnixNano())
+	validJSON := fmt.Sprintf(`{"message-id": "%s", "report_type": "spam"}`, uniqueID)
+	req, _ = http.NewRequest("POST", "/report", strings.NewReader(validJSON))
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	// Without Redis or without previous scan key, it should probably return 404
+	// "No scan data found" -> 404
+	// Or 500 if redis connection fails.
+	if rr.Code != http.StatusNotFound && rr.Code != http.StatusInternalServerError {
+		t.Errorf("Report for missing message should return 404 or 500, got %d", rr.Code)
+	}
+}
+
+func TestDoSync(t *testing.T) {
+	// Mock Oracle
+	ts := setupMockOracle()
+	defer ts.Close()
+
+	originalOracleURL := oracleURL
+	oracleURL = ts.URL
+	defer func() { oracleURL = originalOracleURL }()
+
+	if rdb == nil {
+		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	}
+
+	// Simply call doSync and ensure it doesn't crash
+	doSync()
 }

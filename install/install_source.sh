@@ -37,10 +37,44 @@ install_source() {
             started_ok=0
             if go build; then
                 log_success "Build complete. The binary is available in the mi_guardian directory."
-                # Move binary to /opt/Mailuminati
-                sudo mkdir -p /opt/Mailuminati
-                sudo mv mailuminati-guardian /opt/Mailuminati/mailuminati-guardian
-                log_success "Binary moved to /opt/Mailuminati/mailuminati-guardian."
+                
+                # Setup paths
+                BIN_DIR="/usr/local/bin"
+                CONF_DIR="/etc/mailuminati-guardian"
+                CONF_FILE="${CONF_DIR}/guardian.conf"
+
+                # Move binary to /usr/local/bin
+                sudo mv mailuminati-guardian "${BIN_DIR}/mailuminati-guardian"
+                log_success "Binary moved to ${BIN_DIR}/mailuminati-guardian."
+
+                # Create config directory and file
+                sudo mkdir -p "$CONF_DIR"
+                if [ ! -f "$CONF_FILE" ]; then
+                    log_info "Creating default configuration file at $CONF_FILE"
+                    sudo tee "$CONF_FILE" > /dev/null <<EOF
+# Mailuminati Guardian Configuration
+# Created on $(date)
+
+# Network
+GUARDIAN_BIND_ADDR=127.0.0.1
+PORT=12421
+
+# Redis
+REDIS_HOST=${REDIS_HOST:-localhost}
+REDIS_PORT=${REDIS_PORT:-6379}
+
+# Weights & Logic
+# SPAM_WEIGHT=1
+# HAM_WEIGHT=2
+# LOCAL_RETENTION_DAYS=15
+
+# Oracle
+ORACLE_URL=https://oracle.mailuminati.com
+EOF
+                else
+                    log_info "Configuration file already exists at $CONF_FILE, keeping it."
+                fi
+
                 # Create system user if not exists
                 if ! id -u mailuminati &>/dev/null; then
                     sudo useradd --system --no-create-home --shell /usr/sbin/nologin mailuminati
@@ -48,19 +82,14 @@ install_source() {
                 else
                     log_info "System user 'mailuminati' already exists."
                 fi
-                # Set ownership
-                sudo chown -R mailuminati:mailuminati /opt/Mailuminati
-                log_success "Ownership of /opt/Mailuminati set to 'mailuminati'."
+                
+                # Set ownership of config (readable by mailuminati)
+                sudo chown -R root:mailuminati "$CONF_DIR"
+                sudo chmod 750 "$CONF_DIR"
+                sudo chmod 640 "$CONF_FILE"
+
                 # Create systemd service
                 SERVICE_FILE="/etc/systemd/system/mailuminati-guardian.service"
-                
-                # Determine Redis config for systemd
-                local r_host="${REDIS_HOST:-localhost}"
-                local r_port="${REDIS_PORT:-6379}"
-
-                # Binding option
-                local bind_addr=$(select_bind_address)
-                log_info "Guardian will be exposed on ${bind_addr}:12421"
 
                 sudo tee "$SERVICE_FILE" > /dev/null <<EOF
 [Unit]
@@ -69,13 +98,13 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/opt/Mailuminati/mailuminati-guardian
+ExecStart=${BIN_DIR}/mailuminati-guardian -config ${CONF_FILE}
+ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=5
 User=mailuminati
-Environment="REDIS_HOST=${r_host}"
-Environment="REDIS_PORT=${r_port}"
-Environment="GUARDIAN_BIND_ADDR=${bind_addr}"
+# Environment variables can still override config file if needed, 
+# but mostly we rely on the config file now.
 
 [Install]
 WantedBy=multi-user.target

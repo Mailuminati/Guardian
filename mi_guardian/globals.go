@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
@@ -37,6 +38,10 @@ var (
 	spamWeight             int64
 	hamWeight              int64
 	localRetentionDuration time.Duration
+
+	// Config
+	configMap   map[string]string = make(map[string]string)
+	configMutex sync.RWMutex
 
 	// Prometheus metrics
 	promScanned = prometheus.NewCounter(prometheus.CounterOpts{

@@ -29,6 +29,10 @@ services:
       - GUARDIAN_BIND_ADDR=0.0.0.0
       - REDIS_HOST=${REDIS_HOST:-mi-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
+      # Logic & Learning
+      - SPAM_WEIGHT=1
+      - HAM_WEIGHT=2
+      - LOCAL_RETENTION_DAYS=15
     depends_on:
       mi-redis:
         condition: service_healthy

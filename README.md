@@ -254,9 +254,21 @@ Common options:
   ./install.sh --force-reinstall
   ```
 
-### Environment Variables
+### Configuration & Environment Variables
 
-The installer and subsequent runtime use several environment variables. You can set them before running `install.sh` or edit them in the generated configuration files later.
+Guardian can be configured via environment variables or a configuration file, depending on your installation method.
+
+**For Source installations:**
+The configuration file is located at `/etc/mailuminati-guardian/guardian.conf`.
+You can edit this file to change settings. To apply changes without restarting the service (hot-reload), run:
+```bash
+sudo systemctl reload mailuminati-guardian
+```
+
+**For Docker installations:**
+Configuration is primarily managed via environment variables in `docker-compose.yaml`.
+
+The following variables are available:
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |

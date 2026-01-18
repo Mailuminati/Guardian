@@ -409,7 +409,9 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				// Increment score
-				newScore, _ := rdb.IncrBy(ctx, scoreKey, spamWeight).Result()
+				// Use atomic load for safe concurrent access during reload
+				currentSpamWeight := atomic.LoadInt64(&spamWeight)
+				newScore, _ := rdb.IncrBy(ctx, scoreKey, currentSpamWeight).Result()
 
 				// Refresh/Add bands
 				pipe := rdb.Pipeline()
@@ -426,7 +428,8 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 			} else if reqBody.ReportType == "ham" {
 				if bestMatchDist <= 70 {
 					// Found a corresponding spam entry to punish
-					newScore, _ := rdb.DecrBy(ctx, scoreKey, hamWeight).Result()
+					currentHamWeight := atomic.LoadInt64(&hamWeight)
+					newScore, _ := rdb.DecrBy(ctx, scoreKey, currentHamWeight).Result()
 					log.Printf("[Mailuminati] Ham report for hash: %s (Score: %d)", targetHash, newScore)
 
 					// Refresh TTL (keep it alive even if negative)

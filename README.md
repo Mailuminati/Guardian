@@ -266,8 +266,9 @@ The installer and subsequent runtime use several environment variables. You can 
 | `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
 | `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
 | `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
+| `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
 
-The last two variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
+The last variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
 
 ---
 

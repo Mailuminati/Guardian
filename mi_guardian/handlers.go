@@ -75,6 +75,20 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 5. Image Analysis (Optional)
+	if enableImageAnalysis && shouldAnalyzeImages(env.HTML) {
+		urls := extractImageURLs(env.HTML)
+		if len(urls) > 0 {
+			for _, url := range urls {
+				if sig, err := fetchAndHashImage(url); err == nil {
+					signatures = append(signatures, sig)
+				} else {
+					// Silent failure for images is acceptable, or log debug
+				}
+			}
+		}
+	}
+
 	go storeScanResult(env, signatures)
 
 	var finalResult AnalysisResult = AnalysisResult{Action: "allow", ProximityMatch: false}
@@ -89,7 +103,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 				finalResult = res
 				atomic.AddInt64(&cachedPositiveCount, 1)
 				promCacheHits.WithLabelValues("positive").Inc()
-				goto endAnalysis // Final verdict; stop everything
+				goto endAnalysis
 			}
 		}
 
@@ -208,18 +222,18 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 								atomic.AddInt64(&localSpamCount, 1)
 								promLocalMatch.Inc()
 								isLocalSpam = true
-								break // A single match is enough
+								break
 							}
 						}
 					}
 					if isLocalSpam {
-						goto nextSignature // Local spam verdict; move to next signature
+						goto nextSignature
 					}
 				}
 			}
 			// If we reach here, distances were > 70
 			finalResult.ProximityMatch = true
-			goto nextSignature // Stop here for this signature, as requested
+			goto nextSignature
 		}
 
 		// Step 3: Band-based collision search (Oracle LSH)
@@ -238,13 +252,13 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if matchCount >= 4 {
-			oracleVerdict := callOracleDecision(sig) // Call the oracle only here
+			oracleVerdict := callOracleDecision(sig)
 			if oracleVerdict.Action == "spam" {
 				log.Printf("[Mailuminati] Oracle spam detected! Message-ID: %s | Subject: %s | Signature: %s", messageID, subject, sig)
 				finalResult = oracleVerdict
 				atomic.AddInt64(&spamConfirmedCount, 1)
 				promOracleMatch.WithLabelValues("complete").Inc()
-				break // Final verdict; stop everything
+				break
 			} else {
 				log.Printf("[Mailuminati] Oracle partial match. Message-ID: %s | Subject: %s | Signature: %s", messageID, subject, sig)
 				finalResult.ProximityMatch = true
@@ -254,7 +268,6 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	nextSignature:
-		// If we have a spam verdict (local or oracle), we can stop
 		if finalResult.Action == "spam" {
 			break
 		}
@@ -443,7 +456,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	if reqBody.ReportType == "spam" && skipOracleReport {
 		log.Printf("[Mailuminati] Skip Oracle report for Message-ID: %s (Already known)", reqBody.MessageID)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK) // Return 200 OK
+		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"skipped_oracle","reason":"known_locally"}`))
 		return
 	}

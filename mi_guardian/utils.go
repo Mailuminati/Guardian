@@ -2,9 +2,14 @@ package main
 
 import (
 	"bufio"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func loadConfigFile(path string) error {
@@ -21,15 +26,6 @@ func loadConfigFile(path string) error {
 	defer configMutex.Unlock()
 
 	// Clear existing map to allow complete reload
-	// Note: If you want to keep env vars that are NOT in the file, you might handle this differently,
-	// but usually a reload implies "state of file + state of env".
-	// Since we fall back to os.Getenv in getEnv(), simply clearing keys that might be removed is tricky
-	// without knowing which came from where.
-	// For now, we overwrite keys found in the file.
-	// If we want to support removing a key via file, we'd need complex logic.
-	// Simple approach: Just read file and update map.
-	// Better approach for "Reload": We should probably clear the map first
-	// so that removed lines in the file are no longer in the map.
 	for k := range configMap {
 		delete(configMap, k)
 	}
@@ -77,4 +73,89 @@ func getEnv(k, f string) string {
 		return v
 	}
 	return f
+}
+
+// --- Image Analysis Helpers ---
+
+// countWords removes HTML tags and counts words
+func countWords(text string) int {
+	fields := strings.Fields(text)
+	return len(fields)
+}
+
+// shouldAnalyzeImages checks if content has little text (< 10 words)
+func shouldAnalyzeImages(html string) bool {
+	// Crude HTML strip
+	reTag := regexp.MustCompile(`<[^>]*>`)
+	text := reTag.ReplaceAllString(html, " ")
+	return countWords(text) < 10
+}
+
+// extractImageURLs uses regex to find img src URLs (limit 10)
+func extractImageURLs(html string) []string {
+	reImgSrc := regexp.MustCompile(`(?i)<img[^>]+src=["'](https?://[^"']+)["'][^>]*>`)
+	matches := reImgSrc.FindAllStringSubmatch(html, -1)
+
+	urls := make([]string, 0, 10)
+	seen := make(map[string]bool)
+
+	for _, m := range matches {
+		if len(m) > 1 {
+			url := m[1]
+			if !seen[url] {
+				urls = append(urls, url)
+				seen[url] = true
+				if len(urls) >= maxExternalImages {
+					break
+				}
+			}
+		}
+	}
+	return urls
+}
+
+// fetchAndHashImage downloads image and computes TLSH with Redis caching
+func fetchAndHashImage(url string) (string, error) {
+	// 1. Check Redis Cache
+	cacheKey := "mi:img:" + url
+	if cachedHash, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
+		// Reset TTL on access? Optional. Let's keep it simple.
+		return cachedHash, nil
+	}
+
+	// 2. Fetch Image
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	resp, err := client.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("status %d", resp.StatusCode)
+	}
+
+	// 3. Size Limits Check (Read first 50KB to check MIN size, max limit on reader)
+	// We need MinVisualSize defined in globals.go
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB hard limit
+	if err != nil {
+		return "", err
+	}
+
+	if len(data) < MinVisualSize {
+		return "", fmt.Errorf("too small: %d bytes", len(data))
+	}
+
+	// 4. Compute TLSH
+	sig, err := computeLocalTLSH(string(data))
+	if err != nil {
+		return "", err
+	}
+
+	// 5. Store in Redis (24h TTL)
+	rdb.Set(ctx, cacheKey, sig, 24*time.Hour)
+
+	return sig, nil
 }

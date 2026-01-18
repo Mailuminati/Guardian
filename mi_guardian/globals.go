@@ -39,6 +39,10 @@ var (
 	hamWeight              int64
 	localRetentionDuration time.Duration
 
+	// Image Analysis
+	enableImageAnalysis bool = false
+	maxExternalImages   int  = 10
+
 	// Config
 	configMap   map[string]string = make(map[string]string)
 	configMutex sync.RWMutex
@@ -48,7 +52,6 @@ var (
 		Name: "mailuminati_guardian_scanned_total",
 		Help: "Total number of emails scanned",
 	})
-	// promSpamDetected removed in favor of precise buckets
 	promLocalMatch = prometheus.NewCounter(prometheus.CounterOpts{
 		Name: "mailuminati_guardian_local_match_total",
 		Help: "Total number of emails matched locally",

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"regexp"
@@ -119,21 +120,24 @@ func fetchAndHashImage(url string) (string, error) {
 	// 1. Check Redis Cache
 	cacheKey := "mi:img:" + url
 	if cachedHash, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
-		// Reset TTL on access? Optional. Let's keep it simple.
+		log.Printf("[Mailuminati-Img] Cache HIT for %s -> %s", url, cachedHash)
 		return cachedHash, nil
 	}
 
 	// 2. Fetch Image
+	log.Printf("[Mailuminati-Img] Fetching %s...", url)
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 	resp, err := client.Get(url)
 	if err != nil {
+		log.Printf("[Mailuminati-Img] Fetch error for %s: %v", url, err)
 		return "", err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Printf("[Mailuminati-Img] HTTP error for %s: Status %d", url, resp.StatusCode)
 		return "", fmt.Errorf("status %d", resp.StatusCode)
 	}
 
@@ -141,21 +145,25 @@ func fetchAndHashImage(url string) (string, error) {
 	// We need MinVisualSize defined in globals.go
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB hard limit
 	if err != nil {
+		log.Printf("[Mailuminati-Img] Read error for %s: %v", url, err)
 		return "", err
 	}
 
 	if len(data) < MinVisualSize {
+		log.Printf("[Mailuminati-Img] Skipped %s: Size %d bytes (Min: %d)", url, len(data), MinVisualSize)
 		return "", fmt.Errorf("too small: %d bytes", len(data))
 	}
 
 	// 4. Compute TLSH
 	sig, err := computeLocalTLSH(string(data))
 	if err != nil {
+		log.Printf("[Mailuminati-Img] TLSH error for %s: %v", url, err)
 		return "", err
 	}
 
 	// 5. Store in Redis (24h TTL)
 	rdb.Set(ctx, cacheKey, sig, 24*time.Hour)
 
+	log.Printf("[Mailuminati-Img] Processed %s | Size: %d bytes | Hash: %s", url, len(data), sig)
 	return sig, nil
 }

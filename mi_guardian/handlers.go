@@ -79,6 +79,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 	if enableImageAnalysis && shouldAnalyzeImages(env.HTML) {
 		urls := extractImageURLs(env.HTML)
 		if len(urls) > 0 {
+			log.Printf("[Mailuminati] Image Analysis Triggered. Found %d candidates.", len(urls))
 			for _, url := range urls {
 				if sig, err := fetchAndHashImage(url); err == nil {
 					signatures = append(signatures, sig)

@@ -115,55 +115,65 @@ func extractImageURLs(html string) []string {
 	return urls
 }
 
-// fetchAndHashImage downloads image and computes TLSH with Redis caching
-func fetchAndHashImage(url string) (string, error) {
-	// 1. Check Redis Cache
+// fetchImageSizeAndHash checks cache or downloads image to get size (and data if needed)
+// Returns: data (if downloaded), hash (if cached), size, fromCache, error
+func fetchImageForAnalysis(url string) ([]byte, string, int, bool, error) {
 	cacheKey := "mi:img:" + url
-	if cachedHash, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
-		log.Printf("[Mailuminati-Img] Cache HIT for %s -> %s", url, cachedHash)
-		return cachedHash, nil
+
+	// 1. Check Redis Cache (Format: "SIZE|HASH")
+	if cachedVal, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
+		parts := strings.SplitN(cachedVal, "|", 2)
+		if len(parts) == 2 {
+			if size, err := strconv.Atoi(parts[0]); err == nil {
+				log.Printf("[Mailuminati-Img] Cache HIT for %s (Size: %d)", url, size)
+				return nil, parts[1], size, true, nil
+			}
+		}
 	}
 
 	// 2. Fetch Image
 	log.Printf("[Mailuminati-Img] Fetching %s...", url)
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-	}
+	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
 		log.Printf("[Mailuminati-Img] Fetch error for %s: %v", url, err)
-		return "", err
+		return nil, "", 0, false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("[Mailuminati-Img] HTTP error for %s: Status %d", url, resp.StatusCode)
-		return "", fmt.Errorf("status %d", resp.StatusCode)
+		return nil, "", 0, false, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
-	// 3. Size Limits Check (Read first 50KB to check MIN size, max limit on reader)
-	// We need MinVisualSize defined in globals.go
-	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024)) // 10MB hard limit
+	// 3. Size Limits Check
+	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
 		log.Printf("[Mailuminati-Img] Read error for %s: %v", url, err)
-		return "", err
+		return nil, "", 0, false, err
 	}
 
-	if len(data) < MinVisualSize {
-		log.Printf("[Mailuminati-Img] Skipped %s: Size %d bytes (Min: %d)", url, len(data), MinVisualSize)
-		return "", fmt.Errorf("too small: %d bytes", len(data))
+	if len(data) < MinExternalImageSize {
+		log.Printf("[Mailuminati-Img] Skipped %s: Size %d bytes (Min: %d)", url, len(data), MinExternalImageSize)
+		return nil, "", len(data), false, fmt.Errorf("too small")
 	}
 
-	// 4. Compute TLSH
+	return data, "", len(data), false, nil
+}
+
+// computeAndCacheImageHash processes the chosen image
+func computeAndCacheImageHash(url string, data []byte) (string, error) {
+	// Compute TLSH
 	sig, err := computeLocalTLSH(string(data))
 	if err != nil {
 		log.Printf("[Mailuminati-Img] TLSH error for %s: %v", url, err)
 		return "", err
 	}
 
-	// 5. Store in Redis (24h TTL)
-	rdb.Set(ctx, cacheKey, sig, 24*time.Hour)
+	// Store in Redis (Format: "SIZE|HASH")
+	val := fmt.Sprintf("%d|%s", len(data), sig)
+	rdb.Set(ctx, "mi:img:"+url, val, 24*time.Hour)
 
-	log.Printf("[Mailuminati-Img] Processed %s | Size: %d bytes | Hash: %s", url, len(data), sig)
+	log.Printf("[Mailuminati-Img] Hashed & Cached %s | Size: %d | Hash: %s", url, len(data), sig)
 	return sig, nil
 }

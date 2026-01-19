@@ -80,11 +80,42 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		urls := extractImageURLs(env.HTML)
 		if len(urls) > 0 {
 			log.Printf("[Mailuminati] Image Analysis Triggered. Found %d candidates.", len(urls))
+
+			var bestMatch struct {
+				URL  string
+				Data []byte
+				Hash string
+				Size int
+			}
+
 			for _, url := range urls {
-				if sig, err := fetchAndHashImage(url); err == nil {
-					signatures = append(signatures, sig)
-				} else {
-					// Silent failure for images is acceptable, or log debug
+				data, hash, size, _, err := fetchImageForAnalysis(url)
+				if err != nil {
+					continue // download failed or too small
+				}
+
+				if size > bestMatch.Size {
+					bestMatch.Size = size
+					bestMatch.URL = url
+					bestMatch.Data = data
+					bestMatch.Hash = hash
+				}
+			}
+
+			if bestMatch.Size > 0 {
+				var finalHash string
+				var err error
+
+				if bestMatch.Hash != "" {
+					finalHash = bestMatch.Hash
+				} else if len(bestMatch.Data) > 0 {
+					// We have data but no hash (fresh download), compute now
+					finalHash, err = computeAndCacheImageHash(bestMatch.URL, bestMatch.Data)
+				}
+
+				if err == nil && finalHash != "" {
+					log.Printf("[Mailuminati-Img] Selected BEST image: %s (%d bytes)", bestMatch.URL, bestMatch.Size)
+					signatures = append(signatures, finalHash)
 				}
 			}
 		}

@@ -20,7 +20,8 @@ const (
 	MetaVer               = "mi_meta:v"
 	DefaultOracle         = "https://oracle.mailuminati.com"
 	MaxProcessSize        = 15 * 1024 * 1024 // 15 MB max
-	MinVisualSize         = 50 * 1024        // Ignore small logos/trackers
+	MinVisualSize         = 50 * 1024        // Ignore small logos/trackers (internal attachments)
+	MinExternalImageSize  = 40 * 1024        // Ignore small external images (visual analysis)
 	DefaultLocalRetention = 15               // Days to keep local learning data
 )
 

@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -118,7 +120,8 @@ func extractImageURLs(html string) []string {
 // fetchImageSizeAndHash checks cache or downloads image to get size (and data if needed)
 // Returns: data (if downloaded), hash (if cached), size, fromCache, error
 func fetchImageForAnalysis(url string) ([]byte, string, int, bool, error) {
-	cacheKey := "mi:img:" + url
+	urlHash := sha1.Sum([]byte(url))
+	cacheKey := "mi:img:" + hex.EncodeToString(urlHash[:])
 
 	// 1. Check Redis Cache (Format: "SIZE|HASH")
 	if cachedVal, err := rdb.Get(ctx, cacheKey).Result(); err == nil {
@@ -172,7 +175,9 @@ func computeAndCacheImageHash(url string, data []byte) (string, error) {
 
 	// Store in Redis (Format: "SIZE|HASH")
 	val := fmt.Sprintf("%d|%s", len(data), sig)
-	rdb.Set(ctx, "mi:img:"+url, val, 24*time.Hour)
+	urlHash := sha1.Sum([]byte(url))
+	cacheKey := "mi:img:" + hex.EncodeToString(urlHash[:])
+	rdb.Set(ctx, cacheKey, val, 24*time.Hour)
 
 	log.Printf("[Mailuminati-Img] Hashed & Cached %s | Size: %d | Hash: %s", url, len(data), sig)
 	return sig, nil

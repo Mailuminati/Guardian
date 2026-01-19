@@ -342,6 +342,16 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Silently fix missing brackets in Message-ID
+	if len(reqBody.MessageID) > 0 {
+		if !strings.HasPrefix(reqBody.MessageID, "<") {
+			reqBody.MessageID = "<" + reqBody.MessageID
+		}
+		if !strings.HasSuffix(reqBody.MessageID, ">") {
+			reqBody.MessageID = reqBody.MessageID + ">"
+		}
+	}
+
 	hasher := sha1.New()
 	hasher.Write([]byte(reqBody.MessageID))
 	sha1Hash := hex.EncodeToString(hasher.Sum(nil))

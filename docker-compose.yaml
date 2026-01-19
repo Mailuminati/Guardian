@@ -33,6 +33,8 @@ services:
       - SPAM_WEIGHT=1
       - HAM_WEIGHT=2
       - LOCAL_RETENTION_DAYS=15
+      # Experimental
+      - MI_ENABLE_IMAGE_ANALYSIS=${MI_ENABLE_IMAGE_ANALYSIS:-false}
     depends_on:
       mi-redis:
         condition: service_healthy

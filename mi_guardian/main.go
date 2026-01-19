@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -115,23 +116,16 @@ func refreshLogicConfig() {
 	}
 
 	// Load retention duration from env/config
-	// Note: localRetentionDuration is not int64, so atomic.Store is tricky.
-	// But in this context (SIGHUP), a simple assignment is mostly safe if we assume
-	// one writer (this goroutine) and readers.
-	// For perfect safety, we'd need a mutex or atomic Value for retention too.
-	// Given getEnv has a lock, let's keep it simple for now, or use atomic for weights atleast.
-	// Actually, main.go uses simple assignment for retention.
-	// Let's use configMutex since we already have it? No, getEnv locks it.
-	// A new lock for operational params is cleanest, but for now direct assignment is 'okay'
-	// if we accept a tiny race race condition during the update.
-	// Let's stick to what we had but re-read.
-
 	retentionStr := getEnv("LOCAL_RETENTION_DAYS", strconv.Itoa(DefaultLocalRetention))
 	if days, err := strconv.Atoi(retentionStr); err == nil && days > 0 {
 		localRetentionDuration = time.Duration(days) * 24 * time.Hour
 	} else {
 		localRetentionDuration = time.Duration(DefaultLocalRetention) * 24 * time.Hour
 	}
+
+	// Load Image Analysis config
+	imgAnalysisStr := getEnv("MI_ENABLE_IMAGE_ANALYSIS", "false")
+	enableImageAnalysis = strings.ToLower(imgAnalysisStr) == "true"
 }
 
 func initNode() string {

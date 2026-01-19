@@ -104,6 +104,15 @@ For each incoming email, Guardian:
 
 This process is fast, deterministic, and does not rely on external calls.
 
+#### Image Analysis (Optional)
+
+When enabled, Guardian can fetch and analyze external images for emails containing very little text (less than 10 words).
+This is beneficial for detecting "image-only" spam where the message content is hidden in a remote picture to bypass text based filters.
+
+**⚠️ Performance & Privacy Warning:**
+- **Latency**: Guardian must download images from external servers. If the remote server is slow or under load, this will increase the time taken to scan the email.
+- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side, effectively confirming to a spammer that the email address is valid and active.
+
 ### 2. Local Proximity Detection
 
 Each fingerprint is split into overlapping bands using LSH techniques.
@@ -275,6 +284,7 @@ The following variables are available:
 | `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mi-redis` (Docker) |
 | `REDIS_PORT` | Port of the Redis server | `6379` |
 | `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
+| `MI_ENABLE_IMAGE_ANALYSIS` | Set to `1` to enable the analysis of external images for low-text emails. | `0` (Disabled) |
 | `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
 | `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
 | `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |

@@ -49,6 +49,21 @@ install_source() {
 
                 # Create config directory and file
                 sudo mkdir -p "$CONF_DIR"
+                
+                # Image Analysis Option
+                echo -e "\n--------------------------------------------------"
+                log_info "Experimental Feature: Image Analysis"
+                echo "This feature downloads and hashes images from emails with low text content."
+                echo "It connects to external servers to retrieve images, which may trigger tracking pixels."
+                echo "--------------------------------------------------"
+                enable_img="false"
+                if confirm_yes_no "Enable Image Analysis?" "n"; then
+                    enable_img="true"
+                    log_info "Image Analysis ENABLED."
+                else
+                    log_info "Image Analysis DISABLED."
+                fi
+
                 if [ ! -f "$CONF_FILE" ]; then
                     log_info "Creating default configuration file at $CONF_FILE"
                     sudo tee "$CONF_FILE" > /dev/null <<EOF
@@ -68,11 +83,26 @@ REDIS_PORT=${REDIS_PORT:-6379}
 # HAM_WEIGHT=2
 # LOCAL_RETENTION_DAYS=15
 
+# Experimental
+# Enable downloading and hashing external images for visual analysis
+# Privacy Warning: This connects to external servers and may load tracking pixels.
+MI_ENABLE_IMAGE_ANALYSIS=${enable_img}
+
 # Oracle
 ORACLE_URL=https://oracle.mailuminati.com
 EOF
                 else
-                    log_info "Configuration file already exists at $CONF_FILE, keeping it."
+                    log_info "Configuration file already exists at $CONF_FILE."
+                    # If config exists, try to update or append the image analysis setting
+                    if grep -q "MI_ENABLE_IMAGE_ANALYSIS" "$CONF_FILE"; then
+                         # Update existing line
+                         sudo sed -i "s/^MI_ENABLE_IMAGE_ANALYSIS=.*/MI_ENABLE_IMAGE_ANALYSIS=${enable_img}/" "$CONF_FILE"
+                         log_info "Updated existing MI_ENABLE_IMAGE_ANALYSIS setting in $CONF_FILE"
+                    else
+                         # Append if missing
+                         echo -e "\n# Experimental\n# Enable downloading and hashing external images for visual analysis\nMI_ENABLE_IMAGE_ANALYSIS=${enable_img}" | sudo tee -a "$CONF_FILE" > /dev/null
+                         log_info "Appended MI_ENABLE_IMAGE_ANALYSIS setting to $CONF_FILE"
+                    fi
                 fi
 
                 # Create system user if not exists

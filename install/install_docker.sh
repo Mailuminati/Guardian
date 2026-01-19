@@ -48,6 +48,21 @@ install_docker() {
         selected_bind_ip=$(select_bind_address)
         echo "GUARDIAN_BIND_ADDR=${selected_bind_ip}" >> "${INSTALLER_DIR}/.env"
         log_info "Configuration saved: Guardian will listen on ${selected_bind_ip}:12421"
+
+        # Image Analysis Option
+        echo -e "\n--------------------------------------------------"
+        log_info "Experimental Feature: Image Analysis"
+        echo "This feature downloads and hashes images from emails with low text content."
+        echo "It connects to external servers to retrieve images, which may trigger tracking pixels."
+        echo "--------------------------------------------------"
+        local enable_img="false"
+        if confirm_yes_no "Enable Image Analysis?" "n"; then
+            enable_img="true"
+            log_info "Image Analysis ENABLED."
+        else
+            log_info "Image Analysis DISABLED."
+        fi
+        echo "MI_ENABLE_IMAGE_ANALYSIS=${enable_img}" >> "${INSTALLER_DIR}/.env"
         
         local bind_ip="${selected_bind_ip}"
         

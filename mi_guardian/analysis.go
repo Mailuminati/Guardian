@@ -45,7 +45,6 @@ func computeDistance(d1, d2 string, includeLen bool, threshold int) (int, error)
 	}
 
 	// Note: glaslos/tlsh Diff includes length.
-	// We ignore includeLen parameter as the library doesn't support excluding it easily without forking.
 	dist := t1.Diff(t2)
 
 	return dist, nil

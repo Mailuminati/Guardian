@@ -25,19 +25,17 @@ Guardian is built for anyone operating email infrastructure, from large provider
 - [Local Intelligence vs Shared Intelligence](#local-intelligence-vs-shared-intelligence)
   - [Local Intelligence](#local-intelligence)
   - [Shared Intelligence via the Oracle](#shared-intelligence-via-the-oracle)
+- [Prerequisites](#prerequisites)
+  - [Mandatory](#mandatory)
+  - [Optional but Recommended](#optional-but-recommended)
+- [Installation Options](#installation-options)
+- [Installation](#installation)
 - [How It Works](#how-it-works)
   - [1. Local Analysis](#1-local-analysis)
   - [2. Local Proximity Detection](#2-local-proximity-detection)
   - [3. Oracle Confirmation (When Needed)](#3-oracle-confirmation-when-needed)
   - [4. Learning and Feedback](#4-learning-and-feedback)
 - [Design Goals](#design-goals)
-- [Prerequisites](#prerequisites)
-  - [Mandatory](#mandatory)
-  - [Optional but Recommended](#optional-but-recommended)
-- [Installation Options](#installation-options)
-- [Installation](#installation)
-  - [Method 1: Install from GitHub Archive (Recommended)](#method-1-install-from-github-archive-recommended)
-  - [Method 2: Install using Git, developer friendly](#method-2-install-using-git-developer-friendly)
 - [Deployment Model](#deployment-model)
 - [API Endpoints](#api-endpoints)
 - [Relationship to Other Components](#relationship-to-other-components)
@@ -89,6 +87,114 @@ The Mailuminati Oracle provides the indispensable collaborative dimension:
 By querying the Oracle only when meaningful proximity is detected,
 Guardian benefits from collective intelligence without sacrificing performance
 or privacy.
+
+---
+
+## Prerequisites
+
+### Mandatory
+
+- Linux server  
+- POSIX compatible shell (`/bin/sh` or `/bin/bash`)  
+- `curl`  
+- `tar`  
+- `sudo` (unless installing as root)  
+
+### Optional but Recommended
+
+- `systemd` for service management  
+- `redis` for local cache and learning  
+- An anti spam engine capable of calling HTTP APIs  
+  Examples: Rspamd, SpamAssassin, custom filters  
+- An IMAP server supporting Sieve  
+  Examples: Dovecot, Cyrus, or equivalent  
+
+Guardian does **not** require:
+
+- Git (unless using the developer installation method)  
+- IMAP credentials  
+- Access to raw mailbox content  
+- Heavy runtime dependencies  
+
+### Installation Options
+
+You can customize the installation by passing arguments to the installer.
+
+To see all available options:
+
+```sh
+./install.sh --help
+```
+
+Common options:
+
+- **Redis Configuration**:
+  If your Redis instance is not on localhost (or `mi-redis` for Docker), specify it:
+  ```sh
+  --redis-host 192.168.1.50 --redis-port 6380
+  ```
+
+- **Filter Integration**:
+  Skip all filter integration prompts:
+  ```sh
+  --no-filter-integration
+  ```
+  Disable a specific integration even if installed:
+  ```sh
+  --no-rspamd
+  --no-spamassassin
+  ```
+  
+- **Force Re-installation**:
+  Force the re-installation of the Guardian engine even if the version matches:
+  ```sh
+  --force-reinstall
+  ```
+
+### Configuration & Environment Variables
+
+Guardian can be configured via environment variables or a configuration file, depending on your installation method.
+
+**For Source installations:**
+The configuration file is located at `/etc/mailuminati-guardian/guardian.conf`.
+You can edit this file to change settings. To apply changes without restarting the service (hot-reload), run:
+```bash
+sudo systemctl reload mailuminati-guardian
+```
+
+**For Docker installations:**
+Configuration is primarily managed via environment variables in `docker-compose.yaml`.
+
+The following variables are available:
+
+| Variable | Description | Default |
+| :--- | :--- | :--- |
+| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mi-redis` (Docker) |
+| `REDIS_PORT` | Port of the Redis server | `6379` |
+| `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
+| `MI_ENABLE_IMAGE_ANALYSIS` | Set to `1` to enable the analysis of external images for low-text emails. | `0` (Disabled) |
+| `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
+| `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
+| `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
+| `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
+
+The last variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
+
+---
+
+## Installation
+
+To install Mailuminati Guardian, run the following command in your terminal:
+```sh
+/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)"
+```
+This script will guide you through the installation process, including setting up dependencies and integrating with your existing email filtering systems.
+
+If you need to pass custom options, you can append them to the command. For example:
+```sh
+/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)" -- --redis-host 192.168.1.50 --redis-port 6380
+```
+(note the double dashes `--` before the options)
 
 ---
 
@@ -202,122 +308,7 @@ Mailuminati intelligence and benefiting other Guardian users.
 
 ---
 
-## Prerequisites
 
-### Mandatory
-
-- Linux server  
-- POSIX compatible shell (`/bin/sh` or `/bin/bash`)  
-- `curl`  
-- `tar`  
-- `sudo` (unless installing as root)  
-
-### Optional but Recommended
-
-- `systemd` for service management  
-- `redis` for local cache and learning  
-- An anti spam engine capable of calling HTTP APIs  
-  Examples: Rspamd, SpamAssassin, custom filters  
-- An IMAP server supporting Sieve  
-  Examples: Dovecot, Cyrus, or equivalent  
-
-Guardian does **not** require:
-
-- Git (unless using the developer installation method)  
-- IMAP credentials  
-- Access to raw mailbox content  
-- Heavy runtime dependencies  
-
-### Installation Options
-
-You can customize the installation by passing arguments to the installer.
-
-To see all available options:
-
-```sh
-./install.sh --help
-```
-
-Common options:
-
-- **Redis Configuration**:
-  If your Redis instance is not on localhost (or `mi-redis` for Docker), specify it:
-  ```sh
-  ./install.sh --redis-host 192.168.1.50 --redis-port 6380
-  ```
-
-- **Filter Integration**:
-  Skip all filter integration prompts:
-  ```sh
-  ./install.sh --no-filter-integration
-  ```
-  Disable a specific integration even if installed:
-  ```sh
-  ./install.sh --no-rspamd
-  ./install.sh --no-spamassassin
-  ```
-  
-- **Force Re-installation**:
-  Force the re-installation of the Guardian engine even if the version matches:
-  ```sh
-  ./install.sh --force-reinstall
-  ```
-
-### Configuration & Environment Variables
-
-Guardian can be configured via environment variables or a configuration file, depending on your installation method.
-
-**For Source installations:**
-The configuration file is located at `/etc/mailuminati-guardian/guardian.conf`.
-You can edit this file to change settings. To apply changes without restarting the service (hot-reload), run:
-```bash
-sudo systemctl reload mailuminati-guardian
-```
-
-**For Docker installations:**
-Configuration is primarily managed via environment variables in `docker-compose.yaml`.
-
-The following variables are available:
-
-| Variable | Description | Default |
-| :--- | :--- | :--- |
-| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mi-redis` (Docker) |
-| `REDIS_PORT` | Port of the Redis server | `6379` |
-| `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
-| `MI_ENABLE_IMAGE_ANALYSIS` | Set to `1` to enable the analysis of external images for low-text emails. | `0` (Disabled) |
-| `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
-| `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
-| `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
-| `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
-
-The last variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
-
----
-
-## Installation
-
-Two installation methods are officially supported.
-
-### Method 1: Install from GitHub Archive (Recommended)
-
-This method does not require Git and is suitable for production environments.
-
-```sh
-curl -fsSL https://github.com/Mailuminati/Guardian/archive/refs/heads/main.tar.gz \
-| tar xz
-cd Guardian-main
-./install.sh
-```
-
-### Method 2: Install using Git, developer friendly
-
-This method is recommended if you plan to contribute or track changes easily.
-
-```sh
-git clone https://github.com/Mailuminati/Guardian.git
-cd Guardian
-./install.sh
-```
 
 ## Deployment Model
 

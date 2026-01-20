@@ -15,8 +15,7 @@
 
 services:
   
-  mi-guardian:
-    container_name: mailuminati-guardian
+  guardian:
     build:
       context: .
       dockerfile: Dockerfile.Mailuminati-Guardian
@@ -28,7 +27,7 @@ services:
     environment:
       # Inside the container, we bind 0.0.0.0 so Docker port mapping works
       - GUARDIAN_BIND_ADDR=0.0.0.0
-      - REDIS_HOST=${REDIS_HOST:-mailuminati-redis}
+      - REDIS_HOST=${REDIS_HOST:-redis}
       - REDIS_PORT=${REDIS_PORT:-6379}
       # Logic & Learning
       - SPAM_WEIGHT=1
@@ -37,13 +36,12 @@ services:
       # Experimental
       - MI_ENABLE_IMAGE_ANALYSIS=${MI_ENABLE_IMAGE_ANALYSIS:-false}
     depends_on:
-      mailuminati-redis:
+      redis:
         condition: service_healthy
     networks:
       - Mailuminati
 
-  mailuminati-redis:
-    container_name: mailuminati-redis
+  redis:
     image: redis:latest
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--save", "", "--appendfsync", "everysec"]
@@ -59,7 +57,6 @@ services:
 
 volumes:
   redis_data:
-    name: mailuminati-redis-data
 
 networks:
   Mailuminati:

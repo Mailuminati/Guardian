@@ -40,7 +40,7 @@ install_docker() {
         log_info "Building and starting services with Docker Compose..."
         
         # Generate .env file for Docker Compose
-        echo "REDIS_HOST=${REDIS_HOST:-mailuminati-redis}" > "${INSTALLER_DIR}/.env"
+        echo "REDIS_HOST=${REDIS_HOST:-redis}" > "${INSTALLER_DIR}/.env"
         echo "REDIS_PORT=${REDIS_PORT:-6379}" >> "${INSTALLER_DIR}/.env"
         
         # Binding option
@@ -73,20 +73,20 @@ install_docker() {
 
         if docker_compose_v2_available; then
             compose_up_ok=0
-            # If REDIS_HOST is specified and differs from default "mailuminati-redis", assume external Redis and only start mi-guardian
-            if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "mailuminati-redis" ]; then
-                log_info "External Redis specified ($REDIS_HOST). Launching only mi-guardian service."
-                $DOCKER_SUDO docker compose -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build mi-guardian && compose_up_ok=1
+            # If REDIS_HOST is specified and differs from default "redis", assume external Redis and only start mailuminati-guardian
+            if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "redis" ]; then
+                log_info "External Redis specified ($REDIS_HOST). Launching only mailuminati-guardian service."
+                $DOCKER_SUDO docker compose -p mailuminati -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build mailuminati-guardian && compose_up_ok=1
             else
-                $DOCKER_SUDO docker compose -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build && compose_up_ok=1
+                $DOCKER_SUDO docker compose -p mailuminati -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build && compose_up_ok=1
             fi
         else
             compose_up_ok=0
-             if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "mailuminati-redis" ]; then
-                log_info "External Redis specified ($REDIS_HOST). Launching only mi-guardian service."
-                $DOCKER_SUDO docker-compose -f "$COMPOSE_FILE" up -d --build mi-guardian && compose_up_ok=1
+             if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "redis" ]; then
+                log_info "External Redis specified ($REDIS_HOST). Launching only mailuminati-guardian service."
+                $DOCKER_SUDO docker-compose -p mailuminati -f "$COMPOSE_FILE" up -d --build mailuminati-guardian && compose_up_ok=1
             else
-                $DOCKER_SUDO docker-compose -f "$COMPOSE_FILE" up -d --build && compose_up_ok=1
+                $DOCKER_SUDO docker-compose -p mailuminati -f "$COMPOSE_FILE" up -d --build && compose_up_ok=1
             fi
         fi
 

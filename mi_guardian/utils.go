@@ -30,6 +30,11 @@ import (
 	"time"
 )
 
+var (
+	reImgSrc = regexp.MustCompile(`(?i)<img[^>]+src=["'](https?://[^"']+)["'][^>]*>`)
+	reTag    = regexp.MustCompile(`<[^>]*>`)
+)
+
 func loadConfigFile(path string) error {
 	file, err := os.Open(path)
 	if err != nil {
@@ -104,14 +109,12 @@ func countWords(text string) int {
 // shouldAnalyzeImages checks if content has little text (< 10 words)
 func shouldAnalyzeImages(html string) bool {
 	// Crude HTML strip
-	reTag := regexp.MustCompile(`<[^>]*>`)
 	text := reTag.ReplaceAllString(html, " ")
 	return countWords(text) < 10
 }
 
 // extractImageURLs uses regex to find img src URLs (limit 10)
 func extractImageURLs(html string) []string {
-	reImgSrc := regexp.MustCompile(`(?i)<img[^>]+src=["'](https?://[^"']+)["'][^>]*>`)
 	matches := reImgSrc.FindAllStringSubmatch(html, -1)
 
 	urls := make([]string, 0, 10)

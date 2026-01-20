@@ -169,7 +169,7 @@ The following variables are available:
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mailuminati-redis` (Docker) |
+| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `redis` (Docker) |
 | `REDIS_PORT` | Port of the Redis server | `6379` |
 | `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
 | `MI_ENABLE_IMAGE_ANALYSIS` | Set to `1` to enable the analysis of external images for low-text emails. | `0` (Disabled) |

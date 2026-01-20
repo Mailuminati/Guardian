@@ -59,6 +59,7 @@ services:
 
 volumes:
   redis_data:
+    name: mailuminati-redis-data
 
 networks:
   Mailuminati:

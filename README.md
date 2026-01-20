@@ -389,7 +389,7 @@ Possible fields:
 ### POST /report
 
 Reports a previously scanned email by `Message-ID` (as seen in the original email headers). Guardian will:
-- Apply **local learning** immediately when `report_type` is `spam`
+- Apply **local learning** immediately (spam or ham correction)
 - Forward the report to the Oracle
 
 Request body:
@@ -400,6 +400,10 @@ Request body:
   "report_type": "spam"
 }
 ```
+
+Possible `report_type` values:
+- `spam`: reports a missed spam
+- `ham`: reports a false positive (legitimate email incorrectly detected as spam)
 
 ```bash
 curl -sS -X POST \

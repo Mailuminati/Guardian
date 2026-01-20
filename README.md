@@ -212,12 +212,12 @@ This process is fast, deterministic, and does not rely on external calls.
 
 #### Image Analysis (Optional)
 
-When enabled, Guardian can fetch and analyze external images for emails containing very little text (less than 10 words).
+When enabled, Guardian can fetch and analyze external images for emails containing very little text.
 This is beneficial for detecting "image-only" spam where the message content is hidden in a remote picture to bypass text based filters.
 
 **⚠️ Performance & Privacy Warning:**
 - **Latency**: Guardian must download images from external servers. If the remote server is slow or under load, this will increase the time taken to scan the email.
-- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side, effectively confirming to a spammer that the email address is valid and active.
+- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side.
 
 ### 2. Local Proximity Detection
 

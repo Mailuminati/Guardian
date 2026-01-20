@@ -169,7 +169,7 @@ The following variables are available:
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
-| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mi-redis` (Docker) |
+| `REDIS_HOST` | Hostname or IP of the Redis server | `localhost` (Source) / `mailuminati-redis` (Docker) |
 | `REDIS_PORT` | Port of the Redis server | `6379` |
 | `GUARDIAN_BIND_ADDR` | The network interface IP to bind to.<br>Use `127.0.0.1` for localhost only, or `0.0.0.0` for all interfaces. | `127.0.0.1` |
 | `MI_ENABLE_IMAGE_ANALYSIS` | Set to `1` to enable the analysis of external images for low-text emails. | `0` (Disabled) |
@@ -212,12 +212,12 @@ This process is fast, deterministic, and does not rely on external calls.
 
 #### Image Analysis (Optional)
 
-When enabled, Guardian can fetch and analyze external images for emails containing very little text (less than 10 words).
+When enabled, Guardian can fetch and analyze external images for emails containing very little text.
 This is beneficial for detecting "image-only" spam where the message content is hidden in a remote picture to bypass text based filters.
 
 **⚠️ Performance & Privacy Warning:**
 - **Latency**: Guardian must download images from external servers. If the remote server is slow or under load, this will increase the time taken to scan the email.
-- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side, effectively confirming to a spammer that the email address is valid and active.
+- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side.
 
 ### 2. Local Proximity Detection
 
@@ -389,7 +389,7 @@ Possible fields:
 ### POST /report
 
 Reports a previously scanned email by `Message-ID` (as seen in the original email headers). Guardian will:
-- Apply **local learning** immediately when `report_type` is `spam`
+- Apply **local learning** immediately (spam or ham correction)
 - Forward the report to the Oracle
 
 Request body:
@@ -400,6 +400,10 @@ Request body:
   "report_type": "spam"
 }
 ```
+
+Possible `report_type` values:
+- `spam`: reports a missed spam
+- `ham`: reports a false positive (legitimate email incorrectly detected as spam)
 
 ```bash
 curl -sS -X POST \

@@ -91,29 +91,27 @@ func computeDistanceBatch(ref string, digests []string, ids []string, includeLen
 	return results, nil
 }
 
+var (
+	reImgSrcN   = regexp.MustCompile(`(?i)<img([^>]*?)src="[^"]*"([^>]*?)>`)
+	reHex8      = regexp.MustCompile(`[0-9a-fA-F]{8,}`)
+	reDigit6    = regexp.MustCompile(`\d{6,}`)
+	reStyleAttr = regexp.MustCompile(`(?i)\s*style\s*=\s*"[^"]*"`)
+	reTrackers  = regexp.MustCompile(`(?i)([?&])(utm_[^=&]+|gclid|fbclid|mc_eid|mc_cid)=[^&\s"'>]+`)
+	reSpaces    = regexp.MustCompile(`[ \t]+`)
+	reNewlines  = regexp.MustCompile(`\r?\n{2,}`)
+)
+
 func normalizeEmailBody(text, html string) string {
 	body := text + "\n\n" + html
 	body = strings.TrimSpace(body)
 
-	reImgSrc := regexp.MustCompile(`(?i)<img([^>]*?)src="[^"]*"([^>]*?)>`)
-	body = reImgSrc.ReplaceAllString(body, `<img${1}src="imgurl"${2}>`)
-
-	reHex8 := regexp.MustCompile(`[0-9a-fA-F]{8,}`)
+	body = reImgSrcN.ReplaceAllString(body, `<img${1}src="imgurl"${2}>`)
 	body = reHex8.ReplaceAllString(body, "****")
-
-	reDigit6 := regexp.MustCompile(`\d{6,}`)
 	body = reDigit6.ReplaceAllString(body, "****")
-
-	reStyleAttr := regexp.MustCompile(`(?i)\s*style\s*=\s*"[^"]*"`)
 	body = reStyleAttr.ReplaceAllString(body, "")
-
-	reTrackers := regexp.MustCompile(`(?i)([?&])(utm_[^=&]+|gclid|fbclid|mc_eid|mc_cid)=[^&\s"'>]+`)
 	body = reTrackers.ReplaceAllString(body, "$1")
-
 	body = strings.ToLower(body)
-	reSpaces := regexp.MustCompile(`[ \t]+`)
 	body = reSpaces.ReplaceAllString(body, " ")
-	reNewlines := regexp.MustCompile(`\r?\n{2,}`)
 	body = reNewlines.ReplaceAllString(body, "\n\n")
 
 	return body

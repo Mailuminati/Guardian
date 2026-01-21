@@ -7,7 +7,11 @@
   <img src="https://img.shields.io/badge/License-GPLv3-blue" alt="License">
   <a href="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml"><img src="https://github.com/Mailuminati/Guardian/actions/workflows/go-tests.yml/badge.svg" alt="Go Tests"></a>
 </p>
-
+<p align="center">
+  <img src="https://img.shields.io/docker/pulls/mailuminati/guardian?style=flat-square&color=blue" alt="Docker Pulls">
+  <img src="https://img.shields.io/docker/image-size/mailuminati/guardian/latest?style=flat-square" alt="Docker Image Size">
+  <img src="https://img.shields.io/docker/v/mailuminati/guardian?sort=semver&style=flat-square" alt="Docker Image Version">
+</p>
 
 # Mailuminati Guardian
 

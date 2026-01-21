@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # 1. Maintain GitHub Actions workflows (actions/checkout, docker/login-action, etc.)
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # 2. Monitor Go dependencies in the mi_guardian directory
+  - package-ecosystem: "gomod"
+    directory: "/mi_guardian"
+    schedule:
+      interval: "weekly"
+
+  # 3. Monitor base image updates in the Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"

@@ -48,9 +48,11 @@ RUN useradd -r -u 10001 appuser
 COPY --from=go-builder /app/mi_guardian /usr/local/bin/mi_guardian
 
 # Configure default environment variables
-ENV REDIS_HOST=mi-redis
+ENV REDIS_HOST=redis
 ENV REDIS_PORT=6379
 ENV ORACLE_URL=https://oracle.mailuminati.com
+ENV GUARDIAN_BIND_ADDR=127.0.0.1
+ENV MI_ENABLE_IMAGE_ANALYSIS=false
 
 EXPOSE 12421
 

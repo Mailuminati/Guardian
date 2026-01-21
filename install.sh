@@ -24,7 +24,7 @@
 # ==============================================================================
 
 # Version
-GUARDIAN_VERSION="0.5.2"
+GUARDIAN_VERSION="0.5.5"
 
 # Directory where this installer resides (so relative paths work even if run from elsewhere)
 INSTALLER_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

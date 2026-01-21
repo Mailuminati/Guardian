@@ -55,7 +55,7 @@ jobs:
             type=sha
 
       - name: Build local image for scan
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.Mailuminati-Guardian
@@ -74,7 +74,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Build and push Multi-Arch
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile.Mailuminati-Guardian

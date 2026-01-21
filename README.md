@@ -25,120 +25,88 @@ Guardian is built for anyone operating email infrastructure, from large provider
 
 ## Table of Contents
 
-- [Role in the Mailuminati Ecosystem](#role-in-the-mailuminati-ecosystem)
-- [Local Intelligence vs Shared Intelligence](#local-intelligence-vs-shared-intelligence)
-  - [Local Intelligence](#local-intelligence)
-  - [Shared Intelligence via the Oracle](#shared-intelligence-via-the-oracle)
-- [Prerequisites](#prerequisites)
-  - [Mandatory](#mandatory)
-  - [Optional but Recommended](#optional-but-recommended)
+- [Quick Start](#quick-start)
+- [Prerequisites & Requirements](#prerequisites--requirements)
 - [Installation Options](#installation-options)
-- [Installation](#installation)
-- [How It Works](#how-it-works)
-  - [1. Local Analysis](#1-local-analysis)
-  - [2. Local Proximity Detection](#2-local-proximity-detection)
-  - [3. Oracle Confirmation (When Needed)](#3-oracle-confirmation-when-needed)
-  - [4. Learning and Feedback](#4-learning-and-feedback)
-- [Design Goals](#design-goals)
-- [Deployment Model](#deployment-model)
-- [API Endpoints](#api-endpoints)
-- [Relationship to Other Components](#relationship-to-other-components)
+- [Configuration](#configuration)
+- [How Guardian Works](#how-guardian-works)
+- [Architecture & Ecosystem](#architecture--ecosystem)
+- [API Reference](#api-reference)
 - [License](#license)
 
 ---
 
-## Role in the Mailuminati Ecosystem
+## Quick Start
 
-Guardian is responsible for:
+Install Guardian with a single command:
 
-- Local spam/phishing analysis of incoming emails
-- Structural fingerprinting using TLSH
-- Fast proximity detection via locality sensitive hashing (LSH)
-- Immediate application of local learning
-- Remote confirmation through the Mailuminati Oracle
-- Enforcing final decisions (allow, spam, proximity match)
+```sh
+/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)"
+```
 
-It acts as the **first line of defense**, minimizing latency and resource usage,
-while remaining connected to a broader community driven detection network.
+The installer will:
+- Detect your system configuration
+- Install Guardian and dependencies
+- Integrate with your existing email filtering system (Rspamd, SpamAssassin, etc.)
+- Start the service automatically
 
----
+**Custom installation options:**
+```sh
+/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)" -- --redis-host 192.168.1.50 --redis-port 6380
+```
+(note the double dashes `--` before the options)
 
-## Local Intelligence vs Shared Intelligence
-
-Guardian is built around a clear separation of concerns.
-
-### Local Intelligence
-
-Local analysis and learning allow Guardian to:
-
-- Apply new detections immediately after a report
-- Adapt instantly to operator specific threats and campaigns
-- Remain effective even when disconnected from the Oracle
-- Keep latency close to zero for the majority of messages
-
-This ensures that confirmed spam or phishing reports have an **instant impact**
-on subsequent mail flows for the same operator.
-
-### Shared Intelligence via the Oracle
-
-The Mailuminati Oracle provides the indispensable collaborative dimension:
-
-- Cross operator correlation of campaigns
-- Shared clusters built from independent reports
-- Protection against large scale or fast moving threats
-- Early detection of campaigns unseen locally
-
-By querying the Oracle only when meaningful proximity is detected,
-Guardian benefits from collective intelligence without sacrificing performance
-or privacy.
+For detailed prerequisites and configuration options, see below.
 
 ---
 
-## Prerequisites
+---
+
+## Prerequisites & Requirements
 
 ### Mandatory
 
-- Linux server  
-- POSIX compatible shell (`/bin/sh` or `/bin/bash`)  
-- `curl`  
-- `tar`  
-- `sudo` (unless installing as root)  
+- Linux server
+- `redis` server for local caching and learning (can be on the same host or remote)
+- POSIX compatible shell (`/bin/sh` or `/bin/bash`)
+- `curl`
+- `tar`
+- `sudo` (unless installing as root)
 
 ### Optional but Recommended
 
-- `systemd` for service management  
-- `redis` for local cache and learning  
-- An anti spam engine capable of calling HTTP APIs  
-  Examples: Rspamd, SpamAssassin, custom filters  
+- `systemd` for service management
+- An anti-spam engine capable of calling HTTP APIs  
+  Examples: Rspamd, SpamAssassin, custom filters
 - An IMAP server supporting Sieve  
-  Examples: Dovecot, Cyrus, or equivalent  
+  Examples: Dovecot, Cyrus, or equivalent
 
-Guardian does **not** require:
+### What Guardian Does NOT Require
 
-- Git (unless using the developer installation method)  
-- IMAP credentials  
-- Access to raw mailbox content  
-- Heavy runtime dependencies  
+- IMAP credentials
+- Access to raw mailbox content
+- Heavy runtime dependencies
 
-### Installation Options
+---
+
+## Installation Options
 
 You can customize the installation by passing arguments to the installer.
 
-To see all available options:
-
+**See all available options:**
 ```sh
-./install.sh --help
+/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)" -- --help
 ```
 
-Common options:
+**Common options:**
 
-- **Redis Configuration**:
-  If your Redis instance is not on localhost (or `mi-redis` for Docker), specify it:
+- **Redis Configuration:**  
+  If your Redis instance is not on localhost (or `redis` for Docker):
   ```sh
   --redis-host 192.168.1.50 --redis-port 6380
   ```
 
-- **Filter Integration**:
+- **Filter Integration:**  
   Skip all filter integration prompts:
   ```sh
   --no-filter-integration
@@ -148,28 +116,30 @@ Common options:
   --no-rspamd
   --no-spamassassin
   ```
-  
-- **Force Re-installation**:
+
+- **Force Re-installation:**  
   Force the re-installation of the Guardian engine even if the version matches:
   ```sh
   --force-reinstall
   ```
 
-### Configuration & Environment Variables
+---
+
+## Configuration
 
 Guardian can be configured via environment variables or a configuration file, depending on your installation method.
 
-**For Source installations:**
-The configuration file is located at `/etc/mailuminati-guardian/guardian.conf`.
+**For Source installations:**  
+The configuration file is located at `/etc/mailuminati-guardian/guardian.conf`.  
 You can edit this file to change settings. To apply changes without restarting the service (hot-reload), run:
 ```bash
 sudo systemctl reload mailuminati-guardian
 ```
 
-**For Docker installations:**
+**For Docker installations:**  
 Configuration is primarily managed via environment variables in `docker-compose.yaml`.
 
-The following variables are available:
+### Available Configuration Variables
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
@@ -182,50 +152,53 @@ The following variables are available:
 | `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
 | `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
 
-The last variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
+The weight variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
 
 ---
 
-## Installation
-
-To install Mailuminati Guardian, run the following command in your terminal:
-```sh
-/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)"
-```
-This script will guide you through the installation process, including setting up dependencies and integrating with your existing email filtering systems.
-
-If you need to pass custom options, you can append them to the command. For example:
-```sh
-/bin/bash -c "$(curl -fsSL https://guardian.mailuminati.com/install.sh)" -- --redis-host 192.168.1.50 --redis-port 6380
-```
-(note the double dashes `--` before the options)
-
 ---
 
-## How It Works
+## How Guardian Works
 
-### 1. Local Analysis
+Guardian combines local intelligence with shared threat detection to provide fast, accurate spam filtering.
+
+### Core Concepts
+
+**Local Intelligence:**
+- Instant analysis and learning from operator-specific threats
+- Immediate impact after user/operator reports
+- Works even when disconnected from the Oracle
+- Zero-latency decisions for most messages
+
+**Shared Intelligence (via Oracle):**
+- Cross-operator correlation of spam campaigns
+- Shared threat clusters from independent reports
+- Protection against large-scale, fast-moving threats
+- Early detection of previously unseen campaigns
+
+By querying the Oracle only when meaningful proximity is detected, Guardian benefits from collective intelligence without sacrificing performance or privacy.
+
+### Analysis Pipeline
+
+#### 1. Local Analysis
 
 For each incoming email, Guardian:
-
 - Normalizes textual and HTML content
 - Extracts meaningful attachments
 - Computes one or more TLSH structural fingerprints
 
 This process is fast, deterministic, and does not rely on external calls.
 
-#### Image Analysis (Optional)
+**Image Analysis (Optional):**  
+When enabled via `MI_ENABLE_IMAGE_ANALYSIS=1`, Guardian can fetch and analyze external images for emails containing very little text. This is beneficial for detecting "image-only" spam where the message content is hidden in a remote picture to bypass text-based filters.
 
-When enabled, Guardian can fetch and analyze external images for emails containing very little text.
-This is beneficial for detecting "image-only" spam where the message content is hidden in a remote picture to bypass text based filters.
+> **⚠️ Performance & Privacy Warning:**
+> - **Latency**: Guardian must download images from external servers. If the remote server is slow or under load, this will increase scan time.
+> - **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side.
 
-**⚠️ Performance & Privacy Warning:**
-- **Latency**: Guardian must download images from external servers. If the remote server is slow or under load, this will increase the time taken to scan the email.
-- **Tracking**: Downloading external images may trigger "read receipts" (tracking pixels) on the sender's side.
+#### 2. Local Proximity Detection
 
-### 2. Local Proximity Detection
-
-Each fingerprint is split into overlapping bands using LSH techniques.
+Each fingerprint is split into overlapping bands using LSH (Locality-Sensitive Hashing) techniques.
 
 Guardian checks:
 - Its local learning database
@@ -236,16 +209,25 @@ If sufficient proximity is detected, Guardian may:
 - Flag it as a partial or suspicious match
 - Escalate to the Oracle for confirmation
 
-### 3. Oracle Confirmation (When Needed)
+#### 3. Oracle Confirmation (When Needed)
 
 Only when proximity thresholds are met, Guardian contacts the Oracle to:
-
 - Compute exact distances against known threat clusters
 - Compare fingerprints against cluster medoids built from confirmed reports
 - Receive a final verdict
 
-This design ensures that **only a small fraction of messages** require remote
-confirmation.
+This design ensures that **only a small fraction of messages** require remote confirmation.
+
+#### 4. Learning and Feedback
+
+Guardian supports learning through reports such as:
+- User complaints (via IMAP/Sieve integration)
+- Operator validation
+- Abuse desk signals
+
+Confirmed reports immediately reinforce local detection and can be shared with the Oracle, contributing to global Mailuminati intelligence.
+
+### Architecture Diagram
 
 <pre>
 Incoming Email
@@ -285,69 +267,80 @@ Local Enforcement
 (Spam / Allow / Flag)
 </pre>
 
+### Design Goals
 
-### 4. Learning and Feedback
-
-Guardian supports learning through reports such as:
-
-- User complaints
-- Operator validation
-- Abuse desk signals
-
-Confirmed reports immediately reinforce local detection.
-They can also be shared with the Oracle, contributing to the global
-Mailuminati intelligence and benefiting other Guardian users.
+- **Very low latency** — Most decisions made locally without network calls
+- **Immediate learning** — Reports take effect instantly
+- **Minimal resources** — Low CPU and memory footprint
+- **Privacy-preserving** — No raw email content sharing
+- **Resilient** — Works even when Oracle is unavailable
+- **Scalable** — Suitable for high-volume and small operators alike
 
 ---
 
-## Design Goals
+## Architecture & Ecosystem
 
-- Very low latency
-- Immediate impact of local learning
-- Minimal CPU and memory usage
-- Privacy preserving by design
-- No raw email content sharing
-- Resilience to Oracle unavailability
-- Suitable for high volume and low volume operators alike
+### Role in the Mailuminati Ecosystem
 
----
+Guardian is responsible for:
+- Local spam/phishing analysis of incoming emails
+- Structural fingerprinting using TLSH
+- Fast proximity detection via locality-sensitive hashing (LSH)
+- Immediate application of local learning
+- Remote confirmation through the Mailuminati Oracle
+- Enforcing final decisions (allow, spam, proximity match)
 
+It acts as the **first line of defense**, minimizing latency and resource usage while remaining connected to a broader community-driven detection network.
 
-
-## Deployment Model
+### Deployment Model
 
 Guardian typically runs as:
-
-- A local HTTP service
-- A bridge between the MTA and the Mailuminati ecosystem
+- A local HTTP service on port `12421`
+- A bridge between your MTA and the Mailuminati ecosystem
 - A containerized service alongside Redis
 
-It exposes endpoints such as:
-- `/analyze`
-- `/report`
-- `/status`
+Your email filtering engine (Rspamd, SpamAssassin, etc.) calls Guardian's `/analyze` endpoint for each incoming email, then acts on the verdict.
+
+### Relationship to Other Components
+
+- **Guardian** performs local detection, learning, and enforcement
+- **Oracle** provides shared intelligence and collaborative confirmation
+
+Guardian can operate independently. Its effectiveness increases when connected to the Oracle, where local signals become part of a collective defense.
 
 ---
 
-## API Endpoints
+---
 
-Base URL: `http://<guardian-host>:12421`
+## API Reference
 
-> **Warning (Security)**
+Guardian exposes a simple HTTP API on port `12421`.
+
+> **⚠️ Security Warning**
 >
-> Guardian listens on port **12421** and the API provides **no authentication**.
-> It is therefore strongly recommended to **not expose** `:12421` to the Internet and to **block external access** with a firewall (allow only `localhost` or your internal network) to prevent fraudulent use.
+> Guardian provides **no authentication** on its API. It is strongly recommended to:
+> - **NOT expose** port `12421` to the Internet
+> - **Block external access** with a firewall
+> - Allow only `localhost` or your internal network
 
-### GET /status
+### Base URL
 
-Health/info endpoint used by the installer post-start check.
+```
+http://<guardian-host>:12421
+```
 
+### Endpoints
+
+#### GET /status
+
+Health and version information endpoint.
+
+**Example:**
 ```bash
 curl -sS http://localhost:12421/status | jq
 ```
 
-Example response:
-
+**Response:**
 ```json
 {
   "node_id": "6c0a5e16-2b32-4f86-9b3d-2b2e3df5c7d8",
@@ -356,14 +349,13 @@ Example response:
 }
 ```
 
-### POST /analyze
+---
 
-Analyzes an email provided as raw RFC822/MIME bytes (the full message). Maximum request size is 15 MB.
+#### POST /analyze
 
-Notes:
-- If the email has no `Message-ID` header, Guardian will still analyze it, but `/report` will not be able to find its scan data later.
-- The response includes the computed TLSH signatures under `hashes`.
+Analyzes an email provided as raw RFC822/MIME bytes. Maximum request size: **15 MB**.
 
+**Request:**
 ```bash
 curl -sS -X POST \
   -H 'Content-Type: message/rfc822' \
@@ -371,8 +363,7 @@ curl -sS -X POST \
   http://localhost:12421/analyze | jq
 ```
 
-Example response:
-
+**Response:**
 ```json
 {
   "action": "allow",
@@ -383,32 +374,28 @@ Example response:
 }
 ```
 
-Possible fields:
+**Response Fields:**
 - `action`: `allow` | `spam`
-- `label` (optional): e.g. `local_spam`
-- `proximity_match`: boolean
-- `distance` (optional): integer (TLSH distance when applicable)
-- `hashes` (optional): array of TLSH signatures computed for body/attachments
+- `label` (optional): e.g., `local_spam`, `oracle_spam`
+- `proximity_match`: boolean indicating if similar spam was detected
+- `distance` (optional): TLSH distance to nearest threat (lower = more similar)
+- `hashes` (optional): array of computed TLSH signatures
 
-### POST /report
+**Notes:**
+- If the email lacks a `Message-ID` header, Guardian will still analyze it, but `/report` won't be able to reference it later.
+- The `hashes` field contains the computed TLSH fingerprints for the message.
 
-Reports a previously scanned email by `Message-ID` (as seen in the original email headers). Guardian will:
-- Apply **local learning** immediately (spam or ham correction)
-- Forward the report to the Oracle
+---
 
-Request body:
+#### POST /report
 
-```json
-{
-  "message-id": "<your-message-id@example>",
-  "report_type": "spam"
-}
-```
+Reports a previously scanned email to improve Guardian's learning.
 
-Possible `report_type` values:
-- `spam`: reports a missed spam
-- `ham`: reports a false positive (legitimate email incorrectly detected as spam)
+Guardian will:
+1. Apply **local learning** immediately (spam or ham correction)
+2. Forward the report to the Oracle for shared intelligence
 
+**Request:**
 ```bash
 curl -sS -X POST \
   -H 'Content-Type: application/json' \
@@ -416,34 +403,39 @@ curl -sS -X POST \
   http://localhost:12421/report
 ```
 
-Notes:
-- If Guardian has no stored scan data for this `Message-ID`, it returns `404 No scan data found`.
-- The response body/status code are proxied from the Oracle when reachable.
+**Request Body:**
+```json
+{
+  "message-id": "<your-message-id@example>",
+  "report_type": "spam"
+}
+```
 
-### GET /metrics
+**Report Types:**
+- `spam`: Reports a missed spam (false negative)
+- `ham`: Reports a false positive (legitimate email incorrectly flagged)
 
-Exposes internal metrics in **Prometheus** format. This endpoint is designed to be scraped by a Prometheus server to monitor Guardian's activity.
+**Notes:**
+- Guardian must have previously scanned this email (identified by `Message-ID`)
+- Returns `404 Not Found` if no scan data exists for this Message-ID
+- Response is proxied from the Oracle when reachable
 
-Available metrics include:
-- `mailuminati_guardian_scanned_total`: Total emails scanned.
-- `mailuminati_guardian_local_match_total`: Emails detected using local P2P intelligence.
-- `mailuminati_guardian_oracle_match_total`: Emails matched via Oracle (partial or complete).
-- `mailuminati_guardian_cache_hits_total`: Cache hits efficiency.
+---
 
+#### GET /metrics
+
+Exposes internal metrics in **Prometheus** format for monitoring.
+
+**Example:**
 ```bash
 curl -sS http://localhost:12421/metrics
 ```
 
----
-
-## Relationship to Other Components
-
-- **Guardian** performs local detection, learning, and enforcement
-- **Oracle** provides shared intelligence and collaborative confirmation
-
-Guardian can operate independently.
-Its effectiveness increases when connected to the Oracle,
-where local signals become part of a collective defense.
+**Available Metrics:**
+- `mailuminati_guardian_scanned_total`: Total emails scanned
+- `mailuminati_guardian_local_match_total`: Emails detected using local intelligence
+- `mailuminati_guardian_oracle_match_total`: Emails matched via Oracle
+- `mailuminati_guardian_cache_hits_total`: Cache hit efficiency
 
 ---
 

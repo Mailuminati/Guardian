@@ -16,9 +16,7 @@
 services:
   
   guardian:
-    build:
-      context: .
-      dockerfile: Dockerfile.Mailuminati-Guardian
+    image: mailuminati/guardian:latest
     restart: unless-stopped
     expose:
       - "12421"

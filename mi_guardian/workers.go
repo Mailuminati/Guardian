@@ -71,8 +71,16 @@ func doSync() {
 		rdb.Set(ctx, MetaVer, syncData.NewSeq, 0)
 	} else if syncData.Action == "RESET_DB" {
 		iter := rdb.Scan(ctx, 0, FragKeyPrefix+"*", 0).Iterator()
+		var keys []string
 		for iter.Next(ctx) {
-			rdb.Del(ctx, iter.Val())
+			keys = append(keys, iter.Val())
+			if len(keys) >= 1000 {
+				rdb.Unlink(ctx, keys...)
+				keys = keys[:0] // Clear slice, keeping capacity
+			}
+		}
+		if len(keys) > 0 {
+			rdb.Unlink(ctx, keys...)
 		}
 		rdb.Set(ctx, MetaVer, 0, 0)
 	}

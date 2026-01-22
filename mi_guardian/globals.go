@@ -26,7 +26,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion         = "0.5.5"
+	EngineVersion         = "0.5.7"
 	FragKeyPrefix         = "mi_f:"
 	LocalFragPrefix       = "lg_f:"
 	OracleCacheFragPrefix = "oc_f:"
@@ -56,7 +56,7 @@ var (
 	localRetentionDuration time.Duration
 
 	// Image Analysis
-	enableImageAnalysis bool = false
+	enableImageAnalysis bool = true
 	maxExternalImages   int  = 10
 
 	// Config

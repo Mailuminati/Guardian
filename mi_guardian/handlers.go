@@ -17,6 +17,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -24,6 +25,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -101,21 +103,46 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 				Data []byte
 				Hash string
 				Size int
+				mu   sync.Mutex
 			}
+
+			var wg sync.WaitGroup
+			// Limit concurrent downloads to 5 to avoid resource exhaustion
+			sem := make(chan struct{}, 5)
+			// Global timeout for all image fetching
+			ctxTimeout, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
 
 			for _, url := range urls {
-				data, hash, size, _, err := fetchImageForAnalysis(url)
-				if err != nil {
-					continue // download failed or too small
-				}
+				wg.Add(1)
+				go func(u string) {
+					defer wg.Done()
 
-				if size > bestMatch.Size {
-					bestMatch.Size = size
-					bestMatch.URL = url
-					bestMatch.Data = data
-					bestMatch.Hash = hash
-				}
+					// Check global timeout before starting
+					select {
+					case sem <- struct{}{}:
+						defer func() { <-sem }()
+					case <-ctxTimeout.Done():
+						return
+					}
+
+					data, hash, size, _, err := fetchImageForAnalysis(u)
+					if err != nil {
+						return
+					}
+
+					bestMatch.mu.Lock()
+					if size > bestMatch.Size {
+						bestMatch.Size = size
+						bestMatch.URL = u
+						bestMatch.Data = data
+						bestMatch.Hash = hash
+					}
+					bestMatch.mu.Unlock()
+				}(url)
 			}
+
+			wg.Wait()
 
 			if bestMatch.Size > 0 {
 				var finalHash string

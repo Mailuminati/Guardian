@@ -400,3 +400,77 @@ func TestDoSync(t *testing.T) {
 	// Simply call doSync and ensure it doesn't crash
 	doSync()
 }
+
+// TestExtractImageURLs verifies that image URLs are correctly extracted from HTML content
+func TestExtractImageURLs(t *testing.T) {
+	htmlContent := `
+		<html>
+			<body>
+				<p>Some text</p>
+				<img src="https://guardian.mailuminati.com/imgs/test1.png" alt="Test 1">
+				<div>
+					<img src="https://guardian.mailuminati.com/imgs/test2.jpg">
+				</div>
+				<!-- Invalid or relative URLs should be ignored by default if regex requires http -->
+				<img src="/local/image.png">
+			</body>
+		</html>
+	`
+	expected := []string{
+		"https://guardian.mailuminati.com/imgs/test1.png",
+		"https://guardian.mailuminati.com/imgs/test2.jpg",
+	}
+
+	urls := extractImageURLs(htmlContent)
+
+	if len(urls) != len(expected) {
+		t.Errorf("Expected %d urls, got %d", len(expected), len(urls))
+	}
+
+	for i, url := range urls {
+		if url != expected[i] {
+			t.Errorf("Expected URL %s, got %s", expected[i], url)
+		}
+	}
+}
+
+// TestFetchImageForAnalysis verifies the image downloading logic
+// It uses a local test server to simulate the remote image hosting
+func TestFetchImageForAnalysis(t *testing.T) {
+	// Initialize rdb if nil to avoid panic on cache check
+	if rdb == nil {
+		rdb = redis.NewClient(&redis.Options{Addr: "localhost:6379"})
+	}
+
+	// Mock server returning a valid image (large enough)
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Generate 45KB of dummy data to satisfy MinExternalImageSize (40KB)
+		data := make([]byte, 45*1024)
+		for i := range data {
+			data[i] = 'A' // Fill with some content
+		}
+		w.Header().Set("Content-Type", "image/png")
+		w.WriteHeader(http.StatusOK)
+		w.Write(data)
+	}))
+	defer ts.Close()
+
+	// Use the test server URL which simulates "https://guardian.mailuminati.com/imgs/test1.png"
+	data, _, size, fromCache, err := fetchImageForAnalysis(ts.URL)
+
+	if err != nil {
+		t.Fatalf("Failed to fetch image: %v", err)
+	}
+
+	if fromCache {
+		t.Logf("Image returned from cache (Redis might be running)")
+	}
+
+	if size < 40*1024 {
+		t.Errorf("Expected size >= 40KB, got %d", size)
+	}
+
+	if len(data) != size {
+		t.Errorf("Data buffer length %d != Reported size %d", len(data), size)
+	}
+}

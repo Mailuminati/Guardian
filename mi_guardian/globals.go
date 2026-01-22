@@ -56,7 +56,7 @@ var (
 	localRetentionDuration time.Duration
 
 	// Image Analysis
-	enableImageAnalysis bool = false
+	enableImageAnalysis bool = true
 	maxExternalImages   int  = 10
 
 	// Config

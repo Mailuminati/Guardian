@@ -124,7 +124,7 @@ func refreshLogicConfig() {
 	}
 
 	// Load Image Analysis config
-	imgAnalysisStr := getEnv("MI_ENABLE_IMAGE_ANALYSIS", "false")
+	imgAnalysisStr := getEnv("MI_ENABLE_IMAGE_ANALYSIS", "true")
 	enableImageAnalysis = strings.ToLower(imgAnalysisStr) == "true"
 }
 

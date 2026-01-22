@@ -51,12 +51,12 @@ install_docker() {
 
         # Image Analysis Option
         echo -e "\n--------------------------------------------------"
-        log_info "Experimental Feature: Image Analysis"
+        log_info "Image Analysis"
         echo "This feature downloads and hashes images from emails with low text content."
         echo "It connects to external servers to retrieve images, which may trigger tracking pixels."
         echo "--------------------------------------------------"
         local enable_img="false"
-        if confirm_yes_no "Enable Image Analysis?" "n"; then
+        if confirm_yes_no "Enable Image Analysis?" "y"; then
             enable_img="true"
             log_info "Image Analysis ENABLED."
         else

@@ -3,14 +3,28 @@
   "git": {
     "commitMessage": "chore: release v${version}",
     "tagName": "v${version}",
-    "requireCleanWorkingDir": true
+    "requireCleanWorkingDir": true,
+    "push": true
   },
   "github": {
     "release": true,
-    "releaseName": "v${version}"
+    "releaseName": "v${version}",
+    "web": true
   },
-  "npm": false,
+  "npm": {
+    "publish": false
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md"
+    }
+  },
   "hooks": {
-    "after:bump": "sed -i '' 's/EngineVersion.*= \".*\"/EngineVersion         = \"${version}\"/' mi_guardian/globals.go && sed -i '' 's/GUARDIAN_VERSION=\".*\"/GUARDIAN_VERSION=\"${version}\"/' install.sh && git add mi_guardian/globals.go install.sh"
+    "after:bump": [
+      "sed -i 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go || sed -i '' 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go",
+      "sed -i 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh || sed -i '' 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh",
+      "git add mi_guardian/globals.go install.sh"
+    ]
   }
 }

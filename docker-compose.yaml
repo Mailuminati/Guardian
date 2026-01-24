@@ -30,6 +30,7 @@ services:
       # Logic & Learning
       - SPAM_WEIGHT=1
       - HAM_WEIGHT=2
+      - SPAM_THRESHOLD=1
       - LOCAL_RETENTION_DAYS=15
       # Experimental
       - MI_ENABLE_IMAGE_ANALYSIS=${MI_ENABLE_IMAGE_ANALYSIS:-false}

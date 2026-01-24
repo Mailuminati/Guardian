@@ -53,6 +53,7 @@ var (
 	localSpamCount         int64
 	spamWeight             int64
 	hamWeight              int64
+	localSpamThreshold     int64
 	localRetentionDuration time.Duration
 
 	// Image Analysis

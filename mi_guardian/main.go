@@ -67,7 +67,7 @@ func main() {
 				log.Printf("[Mailuminati] Error reloading config: %v", err)
 			}
 			refreshLogicConfig()
-			log.Printf("[Mailuminati] Configuration reloaded. SpamWeight: %d, HamWeight: %d, Retention: %s", spamWeight, hamWeight, localRetentionDuration)
+			log.Printf("[Mailuminati] Configuration reloaded. SpamWeight: %d, HamWeight: %d, Threshold: %d, Retention: %s", spamWeight, hamWeight, localSpamThreshold, localRetentionDuration)
 		}
 	}()
 
@@ -114,6 +114,18 @@ func refreshLogicConfig() {
 	} else {
 		atomic.StoreInt64(&hamWeight, 2)
 	}
+
+	// Load spam threshold from env/config (default 1)
+	thresholdStr := getEnv("SPAM_THRESHOLD", "1")
+	var threshold int64 = 1
+	if th, err := strconv.ParseInt(thresholdStr, 10, 64); err == nil {
+		threshold = th
+	}
+	// Safety: threshold must be at least 1
+	if threshold < 1 {
+		threshold = 1
+	}
+	atomic.StoreInt64(&localSpamThreshold, threshold)
 
 	// Load retention duration from env/config
 	retentionStr := getEnv("LOCAL_RETENTION_DAYS", strconv.Itoa(DefaultLocalRetention))

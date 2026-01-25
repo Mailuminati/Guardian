@@ -43,22 +43,27 @@ func doSync() {
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Post(oracleURL+"/sync", "application/json", bytes.NewBuffer(payload))
 	if err != nil {
+		logger.Warn("Sync failed (request error)", "error", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		logger.Warn("Sync failed (status)", "status", resp.StatusCode)
 		return
 	}
 
 	var syncData SyncResponse
 	if err := json.NewDecoder(resp.Body).Decode(&syncData); err != nil {
+		logger.Warn("Sync failed (invalid json)", "error", err)
 		return
 	}
 
 	if syncData.Action == "UPDATE_DELTA" {
 		pipe := rdb.Pipeline()
+		count := 0
 		for _, op := range syncData.Ops {
+			count += len(op.Bands)
 			for _, band := range op.Bands {
 				if op.Action == "add" {
 					pipe.Set(ctx, FragKeyPrefix+band, "1", 0)
@@ -69,7 +74,9 @@ func doSync() {
 		}
 		pipe.Exec(ctx)
 		rdb.Set(ctx, MetaVer, syncData.NewSeq, 0)
+		logger.Debug("Sync delta applied", "ops", len(syncData.Ops), "bands", count, "new_seq", syncData.NewSeq)
 	} else if syncData.Action == "RESET_DB" {
+		logger.Info("Received RESET_DB from Oracle")
 		iter := rdb.Scan(ctx, 0, FragKeyPrefix+"*", 0).Iterator()
 		var keys []string
 		for iter.Next(ctx) {
@@ -101,6 +108,12 @@ func statsWorker() {
 			continue
 		}
 
+		logger.Info("Report Stats",
+			"scanned", scanned,
+			"local_spam", localSpams,
+			"oracle_spam", spams,
+			"cache_hits", cachedPositives+cachedNegatives)
+
 		payload, _ := json.Marshal(map[string]interface{}{
 			"node_id":               nodeID,
 			"scanned_count":         scanned,
@@ -116,10 +129,12 @@ func statsWorker() {
 
 		failed := false
 		if err != nil {
+			logger.Warn("Failed to send stats (network)", "error", err)
 			failed = true
 		} else {
 			defer resp.Body.Close() // Ensure we close the body if request was successful
 			if resp.StatusCode > 299 {
+				logger.Warn("Failed to send stats (status)", "status", resp.StatusCode)
 				failed = true
 			}
 		}

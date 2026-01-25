@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -55,6 +56,9 @@ var (
 	hamWeight              int64
 	localSpamThreshold     int64
 	localRetentionDuration time.Duration
+
+	// Logging
+	logger *slog.Logger
 
 	// Image Analysis
 	enableImageAnalysis bool = true

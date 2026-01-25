@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -62,13 +61,15 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 	messageID := env.GetHeader("Message-ID")
 	subject := env.GetHeader("Subject")
 
+	reqLogger := logger.With("message_id", messageID)
+
 	// 1. Analyze text body (Standard strategy)
 	combinedBody := normalizeEmailBody(env.Text, env.HTML)
 	if len(combinedBody) > 100 {
 		if sig, err := computeLocalTLSH(combinedBody); err == nil {
 			signatures = append(signatures, sig)
 		} else {
-			log.Printf("[Mailuminati] Failed to compute TLSH for body: %v", err)
+			reqLogger.Warn("Failed to compute TLSH for body", "error", err)
 		}
 	}
 
@@ -87,7 +88,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 			if sig, err := computeLocalTLSH(string(att.Content)); err == nil {
 				signatures = append(signatures, sig)
 			} else {
-				log.Printf("[Mailuminati] Failed to compute TLSH for attachment '%s': %v", att.FileName, err)
+				reqLogger.Warn("Failed to compute TLSH for attachment", "filename", att.FileName, "error", err)
 			}
 		}
 	}
@@ -96,7 +97,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 	if enableImageAnalysis && shouldAnalyzeImages(env.HTML) {
 		urls := extractImageURLs(env.HTML)
 		if len(urls) > 0 {
-			log.Printf("[Mailuminati] Image Analysis Triggered. Found %d candidates.", len(urls))
+			reqLogger.Debug("Image Analysis Triggered", "candidate_count", len(urls))
 
 			var bestMatch struct {
 				URL  string
@@ -156,7 +157,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 				}
 
 				if err == nil && finalHash != "" {
-					log.Printf("[Mailuminati-Img] Selected BEST image: %s (%d bytes)", bestMatch.URL, bestMatch.Size)
+					reqLogger.Debug("Selected BEST image", "url", bestMatch.URL, "size", bestMatch.Size)
 					signatures = append(signatures, finalHash)
 				}
 			}
@@ -228,7 +229,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 				if err == nil {
 					for hash, dist := range distances {
 						if dist <= 70 {
-							log.Printf("[Mailuminati] Oracle Cache Proximity Match! Message-ID: %s | Subject: %s | Signature: %s | Match: %s | Distance: %d", messageID, subject, sig, hash, dist)
+							reqLogger.Info("Oracle Cache Proximity Match", "match_hash", hash, "distance", dist, "subject", subject, "message_id", messageID)
 							finalResult = AnalysisResult{Action: "spam", Label: "oracle_cache_match", ProximityMatch: true, Distance: dist}
 							atomic.AddInt64(&cachedPositiveCount, 1)
 							promCacheHits.WithLabelValues("positive").Inc()
@@ -291,7 +292,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 							scoreVal, _ := rdb.Get(ctx, scoreKey).Int64()
 
 							if scoreVal >= atomic.LoadInt64(&localSpamThreshold) {
-								log.Printf("[Mailuminati] Local spam detected! Message-ID: %s | Subject: %s | Signature: %s | Match: %s | Score: %d", messageID, subject, sig, hash, scoreVal)
+								reqLogger.Info("Local spam detected", "match_hash", hash, "score", scoreVal, "subject", subject, "message_id", messageID)
 								finalResult = AnalysisResult{Action: "spam", Label: "local_spam", ProximityMatch: true, Distance: dist}
 								atomic.AddInt64(&localSpamCount, 1)
 								promLocalMatch.Inc()
@@ -328,13 +329,13 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 		if matchCount >= 4 {
 			oracleVerdict := callOracleDecision(sig)
 			if oracleVerdict.Action == "spam" {
-				log.Printf("[Mailuminati] Oracle spam detected! Message-ID: %s | Subject: %s | Signature: %s", messageID, subject, sig)
+				reqLogger.Info("Oracle spam detected", "signature", sig, "subject", subject, "message_id", messageID)
 				finalResult = oracleVerdict
 				atomic.AddInt64(&spamConfirmedCount, 1)
 				promOracleMatch.WithLabelValues("complete").Inc()
 				break
 			} else {
-				log.Printf("[Mailuminati] Oracle partial match. Message-ID: %s | Subject: %s | Signature: %s", messageID, subject, sig)
+				reqLogger.Info("Oracle partial match", "signature", sig, "subject", subject, "message_id", messageID)
 				finalResult.ProximityMatch = true
 				atomic.AddInt64(&partialMatchCount, 1)
 				promOracleMatch.WithLabelValues("partial").Inc()
@@ -404,7 +405,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Redis error", http.StatusInternalServerError)
 		return
 	} else if !added {
-		log.Printf("[Mailuminati] Duplicate %s report ignored for Message-ID: %s", reqBody.ReportType, reqBody.MessageID)
+		logger.Warn("Duplicate report ignored", "type", reqBody.ReportType, "message_id", reqBody.MessageID)
 		w.WriteHeader(http.StatusConflict)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"duplicate","message":"Already reported"}`))
@@ -432,7 +433,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	skipOracleReport := false
 
 	if reqBody.ReportType == "spam" || reqBody.ReportType == "ham" {
-		log.Printf("[Mailuminati] Processing %s report for Message-ID: %s", reqBody.ReportType, reqBody.MessageID)
+		logger.Info("Processing report", "type", reqBody.ReportType, "message_id", reqBody.MessageID)
 
 		for _, hash := range scanData.Hashes {
 			bands := extractBands_6_3(hash)
@@ -520,14 +521,14 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 				}
 				pipe.Expire(ctx, scoreKey, localRetentionDuration)
 				pipe.Exec(ctx)
-				log.Printf("[Mailuminati] Learned spam hash: %s (Score: %d)", targetHash, newScore)
+				logger.Info("Learned spam hash", "hash", targetHash, "score", newScore)
 
 			} else if reqBody.ReportType == "ham" {
 				if bestMatchDist <= 70 {
 					// Found a corresponding spam entry to punish
 					currentHamWeight := atomic.LoadInt64(&hamWeight)
 					newScore, _ := rdb.DecrBy(ctx, scoreKey, currentHamWeight).Result()
-					log.Printf("[Mailuminati] Ham report for hash: %s (Score: %d)", targetHash, newScore)
+					logger.Info("Ham report", "hash", targetHash, "score", newScore)
 
 					// Refresh TTL (keep it alive even if negative)
 					rdb.Expire(ctx, scoreKey, localRetentionDuration)
@@ -538,7 +539,7 @@ func reportHandler(w http.ResponseWriter, r *http.Request) {
 	// --- End local learning ---
 
 	if reqBody.ReportType == "spam" && skipOracleReport {
-		log.Printf("[Mailuminati] Skip Oracle report for Message-ID: %s (Already known)", reqBody.MessageID)
+		logger.Info("Skip Oracle report (Already known)", "message_id", reqBody.MessageID)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"skipped_oracle","reason":"known_locally"}`))
@@ -595,7 +596,7 @@ func statusHandler(w http.ResponseWriter, r *http.Request) {
 
 func logRequestHandler(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[Mailuminati] Request: %s %s", r.Method, r.URL.Path)
+		logger.Info("Request", "method", r.Method, "path", r.URL.Path)
 		next.ServeHTTP(w, r)
 	}
 }

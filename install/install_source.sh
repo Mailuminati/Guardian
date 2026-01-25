@@ -84,7 +84,10 @@ REDIS_PORT=${REDIS_PORT:-6379}
 # SPAM_THRESHOLD=1
 # LOCAL_RETENTION_DAYS=15
 
-# Experimental
+# Logging
+# LOG_LEVEL=INFO
+# LOG_FORMAT=JSON
+
 # Enable downloading and hashing external images for visual analysis
 # Privacy Warning: This connects to external servers and may load tracking pixels.
 MI_ENABLE_IMAGE_ANALYSIS=${enable_img}
@@ -119,6 +122,27 @@ EOF
                 sudo chmod 750 "$CONF_DIR"
                 sudo chmod 640 "$CONF_FILE"
 
+                # Create Log file and setup rotation
+                LOG_FILE="/var/log/mailuminati-guardian.log"
+                sudo touch "$LOG_FILE"
+                sudo chown mailuminati:mailuminati "$LOG_FILE"
+                sudo chmod 640 "$LOG_FILE"
+                
+                # Logrotate configuration
+                sudo tee "/etc/logrotate.d/mailuminati-guardian" > /dev/null <<EOF
+$LOG_FILE {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 640 mailuminati mailuminati
+    copytruncate
+}
+EOF
+                log_success "Log file created at $LOG_FILE with rotation configured."
+
                 # Create systemd service
                 SERVICE_FILE="/etc/systemd/system/mailuminati-guardian.service"
 
@@ -134,6 +158,10 @@ ExecReload=/bin/kill -HUP \$MAINPID
 Restart=always
 RestartSec=5
 User=mailuminati
+# Logging
+StandardOutput=append:${LOG_FILE}
+StandardError=append:${LOG_FILE}
+
 # Environment variables can still override config file if needed, 
 # but mostly we rely on the config file now.
 

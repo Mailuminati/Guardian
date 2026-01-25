@@ -27,6 +27,10 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
+func init() {
+	initLogger()
+}
+
 // TestComputeLocalTLSH checks that the generated hash is valid and properly formatted (T1 + Uppercase)
 func TestComputeLocalTLSH(t *testing.T) {
 	// TLSH requires a minimum amount of data (usually > 50 bytes)

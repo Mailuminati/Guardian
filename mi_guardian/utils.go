@@ -21,7 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"regexp"
@@ -34,6 +34,36 @@ var (
 	reImgSrc = regexp.MustCompile(`(?i)<img[^>]+src=["'](https?://[^"']+)["'][^>]*>`)
 	reTag    = regexp.MustCompile(`<[^>]*>`)
 )
+
+func initLogger() {
+	logLevelStr := getEnv("LOG_LEVEL", "INFO")
+	logFormat := getEnv("LOG_FORMAT", "JSON")
+
+	var level slog.Level
+	switch strings.ToUpper(logLevelStr) {
+	case "DEBUG":
+		level = slog.LevelDebug
+	case "WARN":
+		level = slog.LevelWarn
+	case "ERROR":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: level,
+	}
+
+	var handler slog.Handler
+	if strings.ToUpper(logFormat) == "TEXT" {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	}
+
+	logger = slog.New(handler)
+}
 
 func loadConfigFile(path string) error {
 	file, err := os.Open(path)
@@ -146,36 +176,36 @@ func fetchImageForAnalysis(url string) ([]byte, string, int, bool, error) {
 		parts := strings.SplitN(cachedVal, "|", 2)
 		if len(parts) == 2 {
 			if size, err := strconv.Atoi(parts[0]); err == nil {
-				log.Printf("[Mailuminati-Img] Cache HIT for %s (Size: %d)", url, size)
+				logger.Debug("Cache HIT", "component", "img_analysis", "url", url, "size", size)
 				return nil, parts[1], size, true, nil
 			}
 		}
 	}
 
 	// 2. Fetch Image
-	log.Printf("[Mailuminati-Img] Fetching %s...", url)
+	logger.Debug("Fetching image", "component", "img_analysis", "url", url)
 	client := &http.Client{Timeout: 5 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
-		log.Printf("[Mailuminati-Img] Fetch error for %s: %v", url, err)
+		logger.Warn("Fetch error", "component", "img_analysis", "url", url, "error", err)
 		return nil, "", 0, false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("[Mailuminati-Img] HTTP error for %s: Status %d", url, resp.StatusCode)
+		logger.Warn("HTTP error", "component", "img_analysis", "url", url, "status", resp.StatusCode)
 		return nil, "", 0, false, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
 	// 3. Size Limits Check
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 	if err != nil {
-		log.Printf("[Mailuminati-Img] Read error for %s: %v", url, err)
+		logger.Warn("Read error", "component", "img_analysis", "url", url, "error", err)
 		return nil, "", 0, false, err
 	}
 
 	if len(data) < MinExternalImageSize {
-		log.Printf("[Mailuminati-Img] Skipped %s: Size %d bytes (Min: %d)", url, len(data), MinExternalImageSize)
+		logger.Debug("Skipped image (too small)", "component", "img_analysis", "url", url, "size", len(data), "min_size", MinExternalImageSize)
 		return nil, "", len(data), false, fmt.Errorf("too small")
 	}
 
@@ -187,7 +217,7 @@ func computeAndCacheImageHash(url string, data []byte) (string, error) {
 	// Compute TLSH
 	sig, err := computeLocalTLSH(string(data))
 	if err != nil {
-		log.Printf("[Mailuminati-Img] TLSH error for %s: %v", url, err)
+		logger.Warn("TLSH error", "component", "img_analysis", "url", url, "error", err)
 		return "", err
 	}
 
@@ -197,6 +227,6 @@ func computeAndCacheImageHash(url string, data []byte) (string, error) {
 	cacheKey := "mi:img:" + hex.EncodeToString(urlHash[:])
 	rdb.Set(ctx, cacheKey, val, 24*time.Hour)
 
-	log.Printf("[Mailuminati-Img] Hashed & Cached %s | Size: %d | Hash: %s", url, len(data), sig)
+	logger.Info("Hashed & Cached image", "component", "img_analysis", "url", url, "size", len(data), "hash", sig)
 	return sig, nil
 }

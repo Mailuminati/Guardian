@@ -152,6 +152,8 @@ Configuration is primarily managed via environment variables in `docker-compose.
 | `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
 | `SPAM_THRESHOLD` | Minimum score required for a message to be considered spam locally.<br>By default (`1`), a single spam report (with weight 1) is enough to block similar messages.<br>Increase this value (e.g., to `2`) to require multiple reports before blocking. | `1` |
 | `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
+| `LOG_LEVEL` | Logging verbosity leval (`DEBUG`, `INFO`, `WARN`, `ERROR`). | `INFO` |
+| `LOG_FORMAT` | Format of logs (`JSON` for tools/ELK, `TEXT` for human reading). | `JSON` |
 
 The weight and threshold variables work together to give you full control over the local learning mechanism:
 

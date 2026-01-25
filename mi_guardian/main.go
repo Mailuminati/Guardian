@@ -18,7 +18,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -42,9 +41,12 @@ func main() {
 	configPath := flag.String("config", "/etc/mailuminati-guardian/guardian.conf", "Path to configuration file")
 	flag.Parse()
 
+	// Initialize Logger
+	initLogger()
+
 	// Initial configuration load
 	if err := loadConfigFile(*configPath); err != nil {
-		log.Printf("[Mailuminati] Config file error: %v (using defaults/env)", err)
+		logger.Warn("Config file error (using defaults/env)", "error", err)
 	}
 
 	// Configuration
@@ -62,12 +64,16 @@ func main() {
 	signal.Notify(c, syscall.SIGHUP)
 	go func() {
 		for range c {
-			log.Println("[Mailuminati] Received SIGHUP. Reloading configuration...")
+			logger.Info("Received SIGHUP, reloading configuration...")
 			if err := loadConfigFile(*configPath); err != nil {
-				log.Printf("[Mailuminati] Error reloading config: %v", err)
+				logger.Error("Error reloading config", "error", err)
 			}
 			refreshLogicConfig()
-			log.Printf("[Mailuminati] Configuration reloaded. SpamWeight: %d, HamWeight: %d, Threshold: %d, Retention: %s", spamWeight, hamWeight, localSpamThreshold, localRetentionDuration)
+			logger.Info("Configuration reloaded",
+				"spam_weight", atomic.LoadInt64(&spamWeight),
+				"ham_weight", atomic.LoadInt64(&hamWeight),
+				"threshold", atomic.LoadInt64(&localSpamThreshold),
+				"retention", localRetentionDuration)
 		}
 	}()
 
@@ -76,11 +82,12 @@ func main() {
 	})
 
 	if err := rdb.Ping(ctx).Err(); err != nil {
-		log.Fatalf("[Mailuminati] Critical Redis error: %v", err)
+		logger.Error("Critical Redis error", "error", err)
+		os.Exit(1)
 	}
 
 	nodeID = initNode()
-	log.Printf("[Mailuminati] Engine %s started. Node: %s", EngineVersion, nodeID)
+	logger.Info("Engine started", "version", EngineVersion, "node_id", nodeID)
 
 	// Workers
 	go syncWorker()
@@ -94,8 +101,11 @@ func main() {
 
 	port := getEnv("PORT", "12421")
 	bindAddr := getEnv("GUARDIAN_BIND_ADDR", "127.0.0.1")
-	log.Printf("[Mailuminati] MTA bridge ready on %s:%s", bindAddr, port)
-	log.Fatal(http.ListenAndServe(bindAddr+":"+port, nil))
+	logger.Info("MTA bridge ready", "address", bindAddr, "port", port)
+	if err := http.ListenAndServe(bindAddr+":"+port, nil); err != nil {
+		logger.Error("Server failed", "error", err)
+		os.Exit(1)
+	}
 }
 
 func refreshLogicConfig() {

@@ -17,6 +17,7 @@ package main
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -26,7 +27,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion         = "0.6.0"
+	EngineVersion         = "0.7.1"
 	FragKeyPrefix         = "mi_f:"
 	LocalFragPrefix       = "lg_f:"
 	OracleCacheFragPrefix = "oc_f:"
@@ -55,6 +56,9 @@ var (
 	hamWeight              int64
 	localSpamThreshold     int64
 	localRetentionDuration time.Duration
+
+	// Logging
+	logger *slog.Logger
 
 	// Image Analysis
 	enableImageAnalysis bool = true

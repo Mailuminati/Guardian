@@ -42,7 +42,7 @@ Options:
   --no-filter-integration  Do not offer integration steps after startup
   -h, --help               Show this help
 
-Environment variables (override defaults):
+Environment variables configuration (override defaults):
   REDIS_HOST
   REDIS_PORT
   FORCE_REINSTALL=0|1
@@ -50,6 +50,15 @@ Environment variables (override defaults):
   ENABLE_SPAMASSASSIN_INTEGRATION=0|1
   ENABLE_MTA_FILTER_CHECK=0|1
   OFFER_FILTER_INTEGRATION=0|1
+
+Configuration variables (can be set as env vars for installation):
+  LOG_LEVEL=INFO|DEBUG|WARN|ERROR (Default: INFO)
+  LOG_FORMAT=JSON|TEXT            (Default: JSON)
+  SPAM_WEIGHT=<int>               (Default: 1)
+  HAM_WEIGHT=<int>                (Default: 2)
+  SPAM_THRESHOLD=<int>            (Default: 1)
+  LOCAL_RETENTION_DAYS=<int>      (Default: 15)
+  MI_ENABLE_IMAGE_ANALYSIS=0|1    (Default: 0)
 EOF
 }
 

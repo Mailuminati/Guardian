@@ -71,7 +71,9 @@ install_docker() {
              bind_ip="127.0.0.1"
         fi
 
+        log_info "Pulling latest images..."
         if docker_compose_v2_available; then
+            $DOCKER_SUDO docker compose -p mailuminati -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" pull
             compose_up_ok=0
             # If REDIS_HOST is specified and differs from default "redis", assume external Redis and only start mailuminati-guardian
             if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "redis" ]; then
@@ -81,6 +83,7 @@ install_docker() {
                 $DOCKER_SUDO docker compose -p mailuminati -f "$COMPOSE_FILE" --project-directory "$INSTALLER_DIR" up -d --build && compose_up_ok=1
             fi
         else
+            $DOCKER_SUDO docker-compose -p mailuminati -f "$COMPOSE_FILE" pull
             compose_up_ok=0
              if [ -n "$REDIS_HOST" ] && [ "$REDIS_HOST" != "redis" ]; then
                 log_info "External Redis specified ($REDIS_HOST). Launching only mailuminati-guardian service."

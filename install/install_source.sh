@@ -84,7 +84,10 @@ REDIS_PORT=${REDIS_PORT:-6379}
 # SPAM_THRESHOLD=1
 # LOCAL_RETENTION_DAYS=15
 
-# Experimental
+# Logging
+# LOG_LEVEL=INFO
+# LOG_FORMAT=JSON
+
 # Enable downloading and hashing external images for visual analysis
 # Privacy Warning: This connects to external servers and may load tracking pixels.
 MI_ENABLE_IMAGE_ANALYSIS=${enable_img}

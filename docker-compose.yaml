@@ -32,6 +32,9 @@ services:
       - HAM_WEIGHT=2
       - SPAM_THRESHOLD=1
       - LOCAL_RETENTION_DAYS=15
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - LOG_FORMAT=${LOG_FORMAT:-JSON}
       # Experimental
       - MI_ENABLE_IMAGE_ANALYSIS=${MI_ENABLE_IMAGE_ANALYSIS:-false}
     depends_on:

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/Mailuminati/Guardian/compare/v0.7.0...v0.7.1) (2026-01-25)
+
+
+### Bug Fixes
+
+* Add log file creation and rotation to installer ([399729c](https://github.com/Mailuminati/Guardian/commit/399729ca09b759b9f08bc33a551fc21f85ce6efb))
+
 # [0.7.0](https://github.com/Mailuminati/Guardian/compare/v0.6.0...v0.7.0) (2026-01-25)
 
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.3](https://github.com/Mailuminati/Guardian/compare/v0.7.2...v0.7.3) (2026-01-25)
+
+
+### Bug Fixes
+
+* Handle 304 Not Modified in doSync response ([bc4ce6f](https://github.com/Mailuminati/Guardian/commit/bc4ce6fd3fcdadb33174a0c30b17eff6c5f25eec))
+
 ## [0.7.2](https://github.com/Mailuminati/Guardian/compare/v0.7.1...v0.7.2) (2026-01-25)
 
 

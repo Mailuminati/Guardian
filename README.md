@@ -150,10 +150,23 @@ Configuration is primarily managed via environment variables in `docker-compose.
 | `FORCE_REINSTALL` | Set to `1` to force re-installation of the Guardian engine. | `0` |
 | `SPAM_WEIGHT` | Weight applied to hashes reported as spam. | `1` |
 | `HAM_WEIGHT` | Weight applied to hashes reported as ham (false positive). | `2` |
+| `SPAM_THRESHOLD` | Minimum score required for a message to be considered spam locally.<br>By default (`1`), a single spam report (with weight 1) is enough to block similar messages.<br>Increase this value (e.g., to `2`) to require multiple reports before blocking. | `1` |
 | `LOCAL_RETENTION_DAYS` | Retention period (in days) for local learning entries. | `15` |
 
-The weight variables allow operators to fine-tune the impact of spam and ham reports on the local learning database. Adjust these values based on your specific requirements and the desired sensitivity of the system.
+The weight and threshold variables work together to give you full control over the local learning mechanism:
 
+* **Detection Logic:** A message is considered spam if its calculated score is greater than or equal to `SPAM_THRESHOLD`.
+* **Spam Reports:** Reporting a message as spam adds `SPAM_WEIGHT` to its score.
+* **Ham Reports:** Reporting a message as legit (ham) subtracts `HAM_WEIGHT` from its score.
+
+**Example Scenarios:**
+
+*   **Default (Aggressive):** `SPAM_WEIGHT=1`, `SPAM_THRESHOLD=1`.
+    *   1 Spam Report = Score 1. Since `1 >= 1`, it is blocked immediately.
+*   **Cautious:** `SPAM_WEIGHT=1`, `SPAM_THRESHOLD=2`.
+    *   1 Spam Report = Score 1. Not blocked (`1 < 2`).
+    *   2 Spam Reports = Score 2. Blocked (`2 >= 2`).
+    *   1 Spam Report + 1 Ham Report = Score 0. Not blocked (`0 < 2`).
 ---
 
 ---

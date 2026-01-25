@@ -290,7 +290,7 @@ func analyzeHandler(w http.ResponseWriter, r *http.Request) {
 							scoreKey := LocalScorePrefix + hash
 							scoreVal, _ := rdb.Get(ctx, scoreKey).Int64()
 
-							if scoreVal > 0 {
+							if scoreVal >= atomic.LoadInt64(&localSpamThreshold) {
 								log.Printf("[Mailuminati] Local spam detected! Message-ID: %s | Subject: %s | Signature: %s | Match: %s | Score: %d", messageID, subject, sig, hash, scoreVal)
 								finalResult = AnalysisResult{Action: "spam", Label: "local_spam", ProximityMatch: true, Distance: dist}
 								atomic.AddInt64(&localSpamCount, 1)

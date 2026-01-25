@@ -1,0 +1,30 @@
+{
+  "$schema": "https://unpkg.com/release-it/schema/release-it.json",
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "requireCleanWorkingDir": true,
+    "push": true
+  },
+  "github": {
+    "release": true,
+    "releaseName": "v${version}",
+    "web": true
+  },
+  "npm": {
+    "publish": false
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md"
+    }
+  },
+  "hooks": {
+    "after:bump": [
+      "sed -i 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go || sed -i '' 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go",
+      "sed -i 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh || sed -i '' 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh",
+      "git add mi_guardian/globals.go install.sh"
+    ]
+  }
+}

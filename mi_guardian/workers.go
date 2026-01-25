@@ -48,7 +48,7 @@ func doSync() {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNotModified {
 		logger.Warn("Sync failed (status)", "status", resp.StatusCode)
 		return
 	}

@@ -27,7 +27,7 @@ import (
 
 // --- Mailuminati engine configuration ---
 const (
-	EngineVersion         = "0.6.0"
+	EngineVersion         = "0.7.0"
 	FragKeyPrefix         = "mi_f:"
 	LocalFragPrefix       = "lg_f:"
 	OracleCacheFragPrefix = "oc_f:"

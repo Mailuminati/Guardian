@@ -1,5 +1,12 @@
 # Changelog
 
+# [0.7.0](https://github.com/Mailuminati/Guardian/compare/v0.6.0...v0.7.0) (2026-01-25)
+
+
+### Features
+
+* Replace log with slog for structured logging ([49a05cc](https://github.com/Mailuminati/Guardian/commit/49a05cc2d86401ed2b9b271c76c678bf3f964779))
+
 # [0.6.0](https://github.com/Mailuminati/Guardian/compare/v0.5.7...v0.6.0) (2026-01-25)
 
 

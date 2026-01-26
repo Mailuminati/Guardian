@@ -4,11 +4,11 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'mi_guardian/**'
+      - 'src/mi_guardian/**'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'mi_guardian/**'
+      - 'src/mi_guardian/**'
 
 jobs:
   test:
@@ -17,7 +17,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: ./mi_guardian
+        working-directory: ./src/mi_guardian
 
     steps:
     - uses: actions/checkout@v6
@@ -26,7 +26,7 @@ jobs:
       uses: actions/setup-go@v6
       with:
         go-version: '1.25'
-        cache-dependency-path: mi_guardian/go.sum
+        cache-dependency-path: src/mi_guardian/go.sum
 
     - name: Install dependencies
       run: go mod download

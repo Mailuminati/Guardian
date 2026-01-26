@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/images/Guardian_M.png" alt="Logo Guardian" width="400">
+  <img src="./docs/assets/images/Guardian_M.png" alt="Logo Guardian" width="400">
 </div>
 
 <p align="center">

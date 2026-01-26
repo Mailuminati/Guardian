@@ -142,12 +142,12 @@ EOF
 
     # Copy (overwrite) the Mailuminati lua module shipped with Guardian
     # Note: INSTALLER_DIR must be available from the main script
-    local lua_src="${INSTALLER_DIR}/Rspamd/mailuminati.lua"
+    local lua_src="${INSTALLER_DIR}/configs/Rspamd/mailuminati.lua"
     local lua_dst="${rspamd_local_lua_dir}/mailuminati.lua"
 
     if [ ! -f "$lua_src" ]; then
         log_error "Cannot find source lua module: $lua_src"
-        log_info "Expected it inside the Guardian install directory under: Rspamd/mailuminati.lua"
+        log_info "Expected it inside the Guardian install directory under: configs/Rspamd/mailuminati.lua"
         return 1
     fi
 
@@ -165,7 +165,7 @@ EOF
     log_success "Installed: $lua_dst"
 
     # Copy (overwrite) the Mailuminati config file
-    local conf_src="${INSTALLER_DIR}/Rspamd/mailuminati.conf"
+    local conf_src="${INSTALLER_DIR}/configs/Rspamd/mailuminati.conf"
     local conf_dst="${rspamd_local_d_dir}/mailuminati.conf"
 
     if [ -f "$conf_src" ]; then

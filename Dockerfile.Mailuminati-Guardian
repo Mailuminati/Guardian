@@ -21,11 +21,11 @@ FROM golang:1.25-trixie AS go-builder
 WORKDIR /app
 
 # Copy go.mod and go.sum first to leverage cache
-COPY mi_guardian/go.mod mi_guardian/go.sum ./
+COPY src/mi_guardian/go.mod src/mi_guardian/go.sum ./
 RUN go mod download
 
 # Copy the source code
-COPY mi_guardian/*.go ./
+COPY src/mi_guardian/*.go ./
 
 # Build the binary
 RUN go build -o /app/mi_guardian

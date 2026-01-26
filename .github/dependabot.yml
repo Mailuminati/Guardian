@@ -6,9 +6,9 @@ updates:
     schedule:
       interval: "weekly"
 
-  # 2. Monitor Go dependencies in the mi_guardian directory
+  # 2. Monitor Go dependencies in the src/mi_guardian directory
   - package-ecosystem: "gomod"
-    directory: "/mi_guardian"
+    directory: "/src/mi_guardian"
     schedule:
       interval: "weekly"
 

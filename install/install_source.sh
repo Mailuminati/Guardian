@@ -27,16 +27,16 @@ install_source() {
         log_error "Redis is not installed. Cannot proceed with Standalone build."
         log_info "Please install Redis or choose the Docker installation method."
     else
-        if [ -f "${INSTALLER_DIR}/mi_guardian/main.go" ]; then
-            log_info "Initializing Go module in mi_guardian..."
-            pushd "${INSTALLER_DIR}/mi_guardian" >/dev/null || { log_error "Failed to enter ${INSTALLER_DIR}/mi_guardian"; exit 1; }
+        if [ -f "${INSTALLER_DIR}/src/mi_guardian/main.go" ]; then
+            log_info "Initializing Go module in src/mi_guardian..."
+            pushd "${INSTALLER_DIR}/src/mi_guardian" >/dev/null || { log_error "Failed to enter ${INSTALLER_DIR}/src/mi_guardian"; exit 1; }
             go mod init mailuminati-guardian || log_info "Go module already initialized."
             log_info "Tidying Go modules..."
             go mod tidy
             log_info "Building the binary..."
             started_ok=0
             if go build; then
-                log_success "Build complete. The binary is available in the mi_guardian directory."
+                log_success "Build complete. The binary is available in the src/mi_guardian directory."
                 
                 # Setup paths
                 BIN_DIR="/usr/local/bin"
@@ -183,7 +183,7 @@ EOF
             popd >/dev/null || true
             [ "$started_ok" = "1" ] && post_start_flow
         else
-            log_error "No 'main.go' file found in the 'mi_guardian' directory. Please check your source tree."
+            log_error "No 'main.go' file found in the 'src/mi_guardian' directory. Please check your source tree."
         fi
     fi
 }

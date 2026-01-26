@@ -216,7 +216,7 @@ pipe :copy "guardian-report.sh" ["ham"];' | $sudo_cmd tee "$report_ham_sieve" >/
     log_success "Set permissions for sieve scripts (User: $dovecot_user)."
 
     # 5. Install guardian-report.sh
-    local source_script="${INSTALLER_DIR}/Dovecot/guardian-report.sh"
+    local source_script="${INSTALLER_DIR}/configs/Dovecot/guardian-report.sh"
     local target_script="/usr/local/bin/guardian-report.sh"
     
     if [ -f "$source_script" ]; then

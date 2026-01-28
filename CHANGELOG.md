@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.5](https://github.com/Mailuminati/Guardian/compare/v0.7.4...v0.7.5) (2026-01-28)
+
+
+### Bug Fixes
+
+* Add apt-get upgrade to Dockerfile build process ([cd0fc3d](https://github.com/Mailuminati/Guardian/commit/cd0fc3de6c6dcd1eda71c551b5ec9494b8faf001))
+
 ## [0.7.4](https://github.com/Mailuminati/Guardian/compare/v0.7.3...v0.7.4) (2026-01-28)
 
 ## [0.7.3](https://github.com/Mailuminati/Guardian/compare/v0.7.2...v0.7.3) (2026-01-25)

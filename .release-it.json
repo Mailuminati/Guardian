@@ -22,9 +22,9 @@
   },
   "hooks": {
     "after:bump": [
-      "sed -i 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go || sed -i '' 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' mi_guardian/globals.go",
+      "sed -i 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' src/mi_guardian/globals.go || sed -i '' 's/EngineVersion.*=.*/EngineVersion         = \"${version}\"/' src/mi_guardian/globals.go",
       "sed -i 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh || sed -i '' 's/GUARDIAN_VERSION=.*/GUARDIAN_VERSION=\"${version}\"/' install.sh",
-      "git add mi_guardian/globals.go install.sh"
+      "git add src/mi_guardian/globals.go install.sh"
     ]
   }
 }

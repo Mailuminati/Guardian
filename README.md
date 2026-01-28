@@ -56,7 +56,7 @@ The installer will:
 ```
 (note the double dashes `--` before the options)
 
-Install using our official Docker image:
+**Install using our official Docker image:**
 
 ```sh
 docker pull mailuminati/guardian:latest

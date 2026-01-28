@@ -1,5 +1,14 @@
 # Changelog
 
+## [v0.7.5](https://github.com/Mailuminati/Guardian/compare/v0.7.3...vv0.7.5) (2026-01-28)
+
+
+### Bug Fixes
+
+* Add apt-get upgrade to Dockerfile build steps ([303ff23](https://github.com/Mailuminati/Guardian/commit/303ff23a0924e8bd229b641318d0bbe87ec29382))
+* Update Go project paths to src/mi_guardian ([e8b3d2c](https://github.com/Mailuminati/Guardian/commit/e8b3d2cdcdd7e4e1998dacdeb0e7e11be9da8fe0))
+* Update release-it config for new globals.go path ([ed3a15c](https://github.com/Mailuminati/Guardian/commit/ed3a15c3cf25d9b23d6fce032a12495ba4ec2a5b))
+
 ## [0.7.3](https://github.com/Mailuminati/Guardian/compare/v0.7.2...v0.7.3) (2026-01-25)
 
 

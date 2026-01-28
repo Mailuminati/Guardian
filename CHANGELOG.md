@@ -1,5 +1,7 @@
 # Changelog
 
+## [0.7.6](https://github.com/Mailuminati/Guardian/compare/vv0.7.5...v0.7.6) (2026-01-28)
+
 ## [v0.7.5](https://github.com/Mailuminati/Guardian/compare/v0.7.3...vv0.7.5) (2026-01-28)
 
 

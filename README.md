@@ -56,7 +56,13 @@ The installer will:
 ```
 (note the double dashes `--` before the options)
 
-For detailed prerequisites and configuration options, see below.
+Install using our official Docker image:
+
+```sh
+docker pull mailuminati/guardian:latest
+```
+
+For detailed prerequisites configuration options and environment variables, see below.
 
 ---
 

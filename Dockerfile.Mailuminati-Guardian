@@ -16,7 +16,7 @@
 # ==========================================
 # STEP 1: Compile the Mailuminati Guardian binary (Go)
 # ==========================================
-FROM golang:1.25-trixie AS go-builder
+FROM golang:1.26-trixie AS go-builder
 
 WORKDIR /app
 
